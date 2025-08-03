@@ -1,10 +1,18 @@
+permissions:
+  contents: read
+  pull-requests: write
+
 name: PatchPro (Sprint-0)
 on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: patchpro-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   patchpro:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -12,6 +20,8 @@ jobs:
     steps:
       - name: Checkout demo repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Checkout patchpro-bot
         uses: actions/checkout@v4
