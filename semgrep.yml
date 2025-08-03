@@ -1,0 +1,8 @@
+rules:
+  - id: py.unused-variable
+    patterns:
+      - pattern: |
+          $X = $Y
+    message: "Possible unused variable"
+    languages: [python]
+    severity: INFO

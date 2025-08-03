@@ -1,0 +1,57 @@
+name: PatchPro (Sprint-0)
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  patchpro:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout demo repo
+        uses: actions/checkout@v4
+
+      - name: Checkout patchpro-bot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/patchpro-bot
+          path: patchpro-bot
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install analyzers
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff==0.5.7 semgrep==1.84.0
+
+      - name: Run analyzers (JSON artifacts)
+        run: |
+          mkdir -p artifact/analysis
+          ruff check --output-format json . > artifact/analysis/ruff.json || true
+          semgrep --config .semgrep.yml --json > artifact/analysis/semgrep.json || true
+
+      - name: Run PatchPro bot (Sprint-0 stub)
+        run: |
+          python -m pip install ./patchpro-bot
+          python -m patchpro_bot.run_ci
+        env:
+          PP_ARTIFACTS: artifact
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: patchpro-artifacts
+          path: artifact/
+
+      - name: Post summary comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          path: artifact/report.md
