@@ -1,0 +1,3 @@
+[tool.ruff]
+output-format = "json"
+select = ["F", "E", "I", "N"]
