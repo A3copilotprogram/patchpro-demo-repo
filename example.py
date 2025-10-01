@@ -1,4 +1,8 @@
+
 import os  # unused import (intentional)
+
+# The following line will trigger Semgrep's hardcoded password rule
+password = "hardcoded_password123"
 
 
 def add(a, b):
