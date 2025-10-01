@@ -4,6 +4,11 @@ import os  # unused import (intentional)
 # The following line will trigger Semgrep's hardcoded password rule
 password = "hardcoded_password123"
 
+# Another intentional issue for CI: unused function and hardcoded secret
+def unused_function():
+    secret = "another_hardcoded_secret"
+    pass
+
 
 def add(a, b):
     return a + b
