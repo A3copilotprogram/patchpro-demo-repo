@@ -71,3 +71,11 @@
 2025-10-02 08:04:10,523 - patchpro_bot.agent_core - INFO - Enhanced pipeline completed successfully in 0.0s: {'status': 'success', 'findings_count': 196, 'batches_processed': 9, 'fixes_generated': 0, 'patches_written': 0, 'report_path': 'artifact/report.md', 'patch_paths': [], 'combined_patch': None, 'processing_time_seconds': 0.018701791763305664, 'cache_stats': {'size_mb': 0.0020303726196289062, 'entries': 3, 'max_size_mb': 200, 'utilization': 0.0010151863098144531}, 'performance_stats': {'total_findings': 196, 'processed_findings': 196, 'failed_findings': 0, 'total_files': 30, 'processed_files': 30, 'start_time': 1759392250.5115564, 'estimated_completion': 0.0, 'memory_usage_mb': 0, 'cache_hit_rate': 0}}
 2025-10-02 08:04:10,524 - __main__ - INFO - Successfully processed 196 findings
 2025-10-02 08:04:10,524 - __main__ - INFO - Generated 0 patch files
+2025-10-02 13:14:03,405 - patchpro_bot.agent_core - INFO - Starting enhanced patch bot pipeline
+2025-10-02 13:14:03,406 - patchpro_bot.agent_core - INFO - Loading analysis findings
+2025-10-02 13:14:03,406 - patchpro_bot.analysis.reader - INFO - Loaded 0 findings from ruff_output.json
+2025-10-02 13:14:03,406 - patchpro_bot.analysis.reader - INFO - Loaded 0 findings from semgrep_output.json
+2025-10-02 13:14:03,406 - patchpro_bot.analysis.reader - INFO - Total findings loaded: 0
+2025-10-02 13:14:03,406 - patchpro_bot.agent_core - INFO - Loaded 0 findings
+2025-10-02 13:14:03,406 - __main__ - ERROR - Agent failed: No analysis findings found
+2025-10-02 13:14:03,406 - __main__ - INFO - Generating placeholder output
