@@ -40,12 +40,16 @@ jobs:
             git fetch origin ${{ github.base_ref }}
             CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || echo "")
             echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
-            echo "Changed Python files: $CHANGED_FILES"
+            echo "Changed Python files in PR: $CHANGED_FILES"
           else
-            # For workflow_dispatch, analyze demo files only
-            DEMO_FILES="ci_test.py example.py test_sample.py"
-            echo "changed_files=$DEMO_FILES" >> $GITHUB_OUTPUT
-            echo "Demo files for manual run: $DEMO_FILES"
+            # For workflow_dispatch, simulate PR by comparing with main branch
+            echo "Simulating PR behavior - comparing with main branch"
+            git fetch origin main || git fetch origin master || echo "No main/master branch found"
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null | grep -E '\.(py)$' | tr '\n' ' ' || \
+                          git diff --name-only HEAD~5...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || \
+                          echo "ci_test.py example.py test_sample.py")
+            echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "Simulated PR changed files: $CHANGED_FILES"
           fi
 
       - name: Run analyzers on changed files
