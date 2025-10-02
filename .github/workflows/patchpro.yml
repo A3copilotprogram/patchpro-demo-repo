@@ -65,17 +65,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit and push PatchPro autocorrected changes
+      - name: Commit and push PatchPro autocorrected changes with error handling
         if: github.event_name == 'pull_request'
         run: |
+          set -e
           git add .
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "chore: PatchPro Bot autocorrect"
             git fetch origin ${{ github.head_ref }}
-            git rebase origin/${{ github.head_ref }}
-            git push origin HEAD:${{ github.head_ref }}
+            # Try to rebase, auto-resolve conflicts in analysis artifacts
+            if ! git rebase origin/${{ github.head_ref }}; then
+              echo "Rebase failed, attempting to resolve conflicts in analysis artifacts..."
+              git checkout --theirs artifact/analysis/*.json || true
+              git add artifact/analysis/*.json || true
+              git rebase --continue || true
+            fi
+            # Try to push, if fails, print error and exit gracefully
+            if ! git push origin HEAD:${{ github.head_ref }}; then
+              echo "Push failed after rebase. Please resolve conflicts manually."
+              exit 0
+            fi
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
