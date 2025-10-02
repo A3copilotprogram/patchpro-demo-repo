@@ -79,3 +79,11 @@
 2025-10-02 13:14:03,406 - patchpro_bot.agent_core - INFO - Loaded 0 findings
 2025-10-02 13:14:03,406 - __main__ - ERROR - Agent failed: No analysis findings found
 2025-10-02 13:14:03,406 - __main__ - INFO - Generating placeholder output
+2025-10-02 16:48:27,410 - patchpro_bot.agent_core - INFO - Starting enhanced patch bot pipeline
+2025-10-02 16:48:27,410 - patchpro_bot.agent_core - INFO - Loading analysis findings
+2025-10-02 16:48:27,410 - patchpro_bot.analysis.reader - INFO - Loaded 0 findings from ruff_output.json
+2025-10-02 16:48:27,410 - patchpro_bot.analysis.reader - INFO - Loaded 0 findings from semgrep_output.json
+2025-10-02 16:48:27,411 - patchpro_bot.analysis.reader - INFO - Total findings loaded: 0
+2025-10-02 16:48:27,411 - patchpro_bot.agent_core - INFO - Loaded 0 findings
+2025-10-02 16:48:27,411 - __main__ - ERROR - Agent failed: No analysis findings found
+2025-10-02 16:48:27,411 - __main__ - INFO - Generating placeholder output
