@@ -28,7 +28,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/patchpro-bot
           path: patchpro-bot
-          ref: main
+          ref: agent-dev
           token: ${{ secrets.BOT_REPO_TOKEN }}   # PAT with read-only contents
 
       - name: Setup Python
