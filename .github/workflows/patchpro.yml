@@ -56,11 +56,18 @@ jobs:
           cd patchpro-bot/src
           python -m patchpro_bot.agent_core
 
-      - name: Commit and push PatchPro autocorrected changes
+      - name: Set up git authentication for push
         if: github.event_name == 'pull_request'
         run: |
           git config --global user.name "patchpro-bot"
           git config --global user.email "patchpro-bot@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push PatchPro autocorrected changes
+        if: github.event_name == 'pull_request'
+        run: |
           git add .
           if git diff --cached --quiet; then
             echo "No changes to commit."
