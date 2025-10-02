@@ -1,3 +1,9 @@
+      - name: Ensure report exists
+        run: |
+          if [ ! -f artifact/report.md ]; then
+            echo "No report generated." > artifact/report.md
+          fi
+
 permissions:
   contents: read
   pull-requests: write
@@ -60,6 +66,12 @@ jobs:
         with:
           name: patchpro-artifacts
           path: artifact/
+
+      - name: Ensure report exists
+        run: |
+          if [ ! -f artifact/report.md ]; then
+            echo "No report generated." > artifact/report.md
+          fi
 
       - name: Post summary comment
         uses: marocchino/sticky-pull-request-comment@v2
