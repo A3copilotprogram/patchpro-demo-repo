@@ -1,3 +1,14 @@
+# BEGIN CONFLICT: Duplicate add function with different logic
+def add(a, b):
+    # Conflicting implementation
+    return a - b  # Intentional error for conflict
+# END CONFLICT
+
+# BEGIN FLAW: Unused variable and insecure code
+def insecure_function():
+    token = "super_secret_token"
+    print("This is insecure!")
+# END FLAW
 
 import os  # unused import (intentional)
 
