@@ -52,7 +52,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python patchpro-bot/src/patchpro_bot/agent_core.py
+          cd patchpro-bot/src
+          python -m patchpro_bot.agent_core
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
