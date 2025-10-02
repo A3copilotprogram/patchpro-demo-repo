@@ -26,7 +26,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/patchpro-bot
           path: patchpro-bot
-          ref: demo-update-2025-10-01
+          ref: agent-dev
           token: ${{ secrets.BOT_REPO_TOKEN }}
 
       - name: Setup Python
