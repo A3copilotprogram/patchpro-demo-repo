@@ -1,9 +1,3 @@
-      - name: Ensure report exists
-        run: |
-          if [ ! -f artifact/report.md ]; then
-            echo "No report generated." > artifact/report.md
-          fi
-
 permissions:
   contents: read
   pull-requests: write
@@ -16,6 +10,7 @@ on:
 concurrency:
   group: patchpro-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   patchpro:
     timeout-minutes: 5
@@ -60,6 +55,21 @@ jobs:
         run: |
           cd patchpro-bot/src
           python -m patchpro_bot.agent_core
+
+      - name: Commit and push PatchPro autocorrected changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git config --global user.name "patchpro-bot"
+          git config --global user.email "patchpro-bot@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: PatchPro Bot autocorrect"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
