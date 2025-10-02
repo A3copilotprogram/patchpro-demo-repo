@@ -73,6 +73,8 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "chore: PatchPro Bot autocorrect"
+            git fetch origin ${{ github.head_ref }}
+            git rebase origin/${{ github.head_ref }}
             git push origin HEAD:${{ github.head_ref }}
           fi
         env:
