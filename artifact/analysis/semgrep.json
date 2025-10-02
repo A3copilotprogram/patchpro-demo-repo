@@ -1,0 +1,1 @@
+{"errors": [{"code": 2, "level": "error", "message": "WARNING: unable to find a config; path `.semgrep.yml` does not exist", "type": "SemgrepError"}, {"code": 7, "level": "error", "message": "invalid configuration file found (1 configs were invalid)", "type": "SemgrepError"}], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}
