@@ -21,40 +21,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Checkout patchpro-bot
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/patchpro-bot
-          path: patchpro-bot
-          ref: agent-dev
-          token: ${{ secrets.BOT_REPO_TOKEN }}
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install analyzers
+      - name: Install analyzers and PatchPro
         run: |
           python -m pip install --upgrade pip
           pip install ruff==0.5.7 semgrep==1.84.0
+          pip install git+https://github.com/${{ github.repository_owner }}/patchpro-bot.git@agent-dev
 
       - name: Run analyzers
         run: |
           mkdir -p artifact/analysis
-          ruff check --output-format json . > artifact/analysis/ruff.json || true
-          semgrep --config .semgrep.yml --json > artifact/analysis/semgrep.json || true
-
-      - name: Install PatchPro Bot (local path)
-        run: |
-          python -m pip install ./patchpro-bot
+          ruff check --output-format json . > artifact/analysis/ruff_output.json || true
+          semgrep --config .semgrep.yml --json . > artifact/analysis/semgrep_output.json || true
 
       - name: Run PatchPro Agent Core
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          cd patchpro-bot/src
-          python -m patchpro_bot.agent_core
+          python -m patchpro_bot.run_ci
 
       - name: Set up git authentication for push
         if: github.event_name == 'pull_request'
