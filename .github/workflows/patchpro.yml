@@ -53,6 +53,7 @@ jobs:
           python -m patchpro_bot.run_ci
         env:
           PP_ARTIFACTS: artifact
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
