@@ -25,13 +25,8 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/patchpro-bot
           path: patchpro-bot
-<<<<<<< HEAD
           ref: main
           token: ${{ secrets.BOT_REPO_TOKEN }}
-=======
-          ref: main
-          token: ${{ secrets.BOT_REPO_TOKEN }}
->>>>>>> 7ac79b9 (chore: update workflow and docs for PatchPro demo)
 
       - name: Setup Python
         uses: actions/setup-python@v5
