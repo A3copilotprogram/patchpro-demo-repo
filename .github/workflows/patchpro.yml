@@ -32,11 +32,36 @@ jobs:
           pip install ruff==0.5.7 semgrep==1.84.0
           pip install git+https://github.com/${{ github.repository_owner }}/patchpro-bot.git@agent-dev
 
-      - name: Run analyzers
+      - name: Get changed files in PR
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Get changed Python files in the PR
+            git fetch origin ${{ github.base_ref }}
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || echo "")
+            echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "Changed Python files: $CHANGED_FILES"
+          else
+            # For workflow_dispatch, analyze demo files only
+            DEMO_FILES="ci_test.py example.py test_sample.py"
+            echo "changed_files=$DEMO_FILES" >> $GITHUB_OUTPUT
+            echo "Demo files for manual run: $DEMO_FILES"
+          fi
+
+      - name: Run analyzers on changed files
         run: |
           mkdir -p artifact/analysis
-          ruff check --output-format json . > artifact/analysis/ruff_output.json || true
-          semgrep --config .semgrep.yml --json . > artifact/analysis/semgrep_output.json || true
+          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Analyzing files: $CHANGED_FILES"
+            ruff check --output-format json $CHANGED_FILES > artifact/analysis/ruff_output.json || true
+            semgrep --config .semgrep.yml --json $CHANGED_FILES > artifact/analysis/semgrep_output.json || true
+          else
+            echo "No Python files changed, creating empty analysis files"
+            echo "[]" > artifact/analysis/ruff_output.json
+            echo '{"errors": [], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}' > artifact/analysis/semgrep_output.json
+          fi
 
       - name: Run PatchPro Agent Core
         env:
