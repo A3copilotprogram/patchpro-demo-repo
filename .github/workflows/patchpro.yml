@@ -90,17 +90,18 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           set -e
-          git add .
+          # Only add source code files, not artifacts
+          git add '*.py' '*.js' '*.ts' '*.java' '*.cpp' '*.c' '*.h' '*.css' '*.html' '*.md' || true
+          # Explicitly exclude artifacts
+          git reset HEAD artifact/ changed_files_only/ || true
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "chore: PatchPro Bot autocorrect"
             git fetch origin ${{ github.head_ref }}
-            # Try to rebase, auto-resolve conflicts in analysis artifacts
+            # Try to rebase, auto-resolve conflicts in analysis artifacts  
             if ! git rebase origin/${{ github.head_ref }}; then
-              echo "Rebase failed, attempting to resolve conflicts in analysis artifacts..."
-              git checkout --theirs artifact/analysis/*.json || true
-              git add artifact/analysis/*.json || true
+              echo "Rebase failed, attempting to resolve conflicts..."
               git rebase --continue || true
             fi
             # Try to push, if fails, print error and exit gracefully
