@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0  # Fetch full history for proper git diff
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -36,14 +37,12 @@ jobs:
         id: changed-files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Get changed Python files in the PR
+            # Get changed Python files in the PR with full git history
             git fetch origin ${{ github.base_ref }}
-            # Try different approaches to find changed files
-            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null | grep -E '\.(py)$' | tr '\n' ' ' || \
-                          git diff --name-only HEAD~10...HEAD 2>/dev/null | grep -E '\.(py)$' | tr '\n' ' ' || \
-                          find . -name "*.py" -type f | grep -v "__pycache__" | head -10 | tr '\n' ' ')
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' | xargs)
             echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
-            echo "Changed Python files in PR: $CHANGED_FILES"
+            echo "Changed Python files in PR: '$CHANGED_FILES'"
+            echo "Number of changed Python files: $(echo $CHANGED_FILES | wc -w)"
           else
             # For workflow_dispatch, simulate PR by comparing with main branch
             echo "Simulating PR behavior - comparing with main branch"
@@ -72,11 +71,10 @@ jobs:
             done
             python -m patchpro_bot.cli run-ci --base-dir changed_files_only --artifacts artifact
           else
-            echo "No Python files changed, creating empty analysis"
-            mkdir -p artifact/analysis
-            echo "[]" > artifact/analysis/ruff.json
-            echo '{"errors": [], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}' > artifact/analysis/semgrep.json
-            echo "No changes to analyze." > artifact/report.md
+            echo "No changed files detected via git diff, running on current Python files for demo"
+            # For demo purposes, let's analyze the current Python files
+            echo "Analyzing current Python files: example.py, ci_test.py, test_sample.py"
+            python -m patchpro_bot.cli run-ci --base-dir . --artifacts artifact --tools ruff semgrep
           fi
 
       - name: Set up git authentication for push
