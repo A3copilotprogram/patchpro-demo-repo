@@ -74,7 +74,7 @@ jobs:
             echo "No changed files detected via git diff, running on current Python files for demo"
             # For demo purposes, let's analyze the current Python files
             echo "Analyzing current Python files: example.py, ci_test.py, test_sample.py"
-            python -m patchpro_bot.cli run-ci --base-dir . --artifacts artifact --tools ruff semgrep
+            python -m patchpro_bot.cli run-ci --base-dir . --artifacts artifact --tools ruff --tools semgrep
           fi
 
       - name: Set up git authentication for push
