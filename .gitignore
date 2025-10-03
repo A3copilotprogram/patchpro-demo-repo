@@ -2,6 +2,7 @@
 # Generated artifacts
 artifact/
 patchpro-artifacts/
+changed_files_only/
 patchpro_demo.egg-info/
 uv.lock
 .env
