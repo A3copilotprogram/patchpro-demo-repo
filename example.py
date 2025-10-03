@@ -28,3 +28,17 @@ def add(a, b):
 def multiply(a, b):
     result = a * b  # result is assigned but not used (lint error)
     return a * b
+
+# New function with trailing whitespace and style issues  
+def divide(a,b):   
+    """Division function with style problems."""
+    if b==0:
+        return None
+    return a/b
+        
+def process_file(filename):
+    # Missing file context manager (should use 'with open')
+    f = open(filename, 'r')
+    content = f.read()
+    f.close()
+    return content

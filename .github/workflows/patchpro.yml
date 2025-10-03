@@ -52,26 +52,29 @@ jobs:
             echo "Simulated PR changed files: $CHANGED_FILES"
           fi
 
-      - name: Run analyzers on changed files
-        run: |
-          mkdir -p artifact/analysis
-          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
-          
-          if [ -n "$CHANGED_FILES" ]; then
-            echo "Analyzing files: $CHANGED_FILES"
-            ruff check --output-format json $CHANGED_FILES > artifact/analysis/ruff_output.json || true
-            semgrep --config .semgrep.yml --json $CHANGED_FILES > artifact/analysis/semgrep_output.json || true
-          else
-            echo "No Python files changed, creating empty analysis files"
-            echo "[]" > artifact/analysis/ruff_output.json
-            echo '{"errors": [], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}' > artifact/analysis/semgrep_output.json
-          fi
-
-      - name: Run PatchPro Agent Core
+      - name: Run PatchPro integrated pipeline
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python -m patchpro_bot.run_ci
+          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Running PatchPro integrated pipeline on: $CHANGED_FILES"
+            # Create a temporary directory with only changed files for focused analysis
+            mkdir -p changed_files_only
+            for file in $CHANGED_FILES; do
+              if [ -f "$file" ]; then
+                cp "$file" "changed_files_only/"
+              fi
+            done
+            python -m patchpro_bot.cli run-ci --base-dir changed_files_only --artifacts artifact
+          else
+            echo "No Python files changed, creating empty analysis"
+            mkdir -p artifact/analysis
+            echo "[]" > artifact/analysis/ruff.json
+            echo '{"errors": [], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}' > artifact/analysis/semgrep.json
+            echo "No changes to analyze." > artifact/report.md
+          fi
 
       - name: Set up git authentication for push
         if: github.event_name == 'pull_request'
