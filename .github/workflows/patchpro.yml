@@ -38,7 +38,10 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             # Get changed Python files in the PR
             git fetch origin ${{ github.base_ref }}
-            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || echo "")
+            # Try different approaches to find changed files
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null | grep -E '\.(py)$' | tr '\n' ' ' || \
+                          git diff --name-only HEAD~10...HEAD 2>/dev/null | grep -E '\.(py)$' | tr '\n' ' ' || \
+                          find . -name "*.py" -type f | grep -v "__pycache__" | head -10 | tr '\n' ' ')
             echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
             echo "Changed Python files in PR: $CHANGED_FILES"
           else
