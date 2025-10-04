@@ -1,5 +1,7 @@
 """Demo: Local developer workflow with PatchPro."""
 
+import json  # This import is unused
+import os
 
 
 def process_items(items):
@@ -14,7 +16,7 @@ def process_items(items):
 def check_user(username):
     """Check if username is valid."""
     # Bad: using == None instead of is None
-    if username is None:
+    if username == None:
         return False
     return True
 
@@ -25,7 +27,7 @@ def handle_error():
     try:
         result = do_something()
         return result
-    except Exception:
+    except:
         return None
 
 
