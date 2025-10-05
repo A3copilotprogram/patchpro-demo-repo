@@ -1,3 +1,8 @@
+# Test file for PatchPro Agent Dev telemetry validation
+# This file contains intentional code quality issues to test:
+# 1. Agentic mode enablement via .patchpro.toml
+# 2. Telemetry trace capture in CI environment
+# 3. AgenticPatchGeneratorV2 with retries
 import os, sys, json
 
 def process_data(data):
