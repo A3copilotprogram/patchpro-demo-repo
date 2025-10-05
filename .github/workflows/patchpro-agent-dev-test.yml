@@ -63,8 +63,10 @@ jobs:
           EOF
           
           # Run analyze-pr command (replaces old run_ci.py)
+          # Use github.base_ref for pull_request events, fallback to demo/patchpro-ci-test for workflow_dispatch
+          BASE_REF="${{ github.base_ref || 'demo/patchpro-ci-test' }}"
           python -m patchpro_bot.cli analyze-pr \
-            --base origin/${{ github.base_ref }} \
+            --base origin/$BASE_REF \
             --head HEAD \
             --with-llm \
             --artifacts .patchpro \
