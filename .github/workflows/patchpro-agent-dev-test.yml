@@ -6,7 +6,7 @@ name: PatchPro Agent-Dev (Phase 1 Evaluation Test)
 on:
   pull_request:
     branches:
-      - test-telemetry-*  # Only trigger for test branches
+      - demo/patchpro-ci-test  # Trigger for PRs targeting this branch
   workflow_dispatch:
 
 concurrency:
