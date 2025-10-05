@@ -73,6 +73,28 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PP_ARTIFACTS: .patchpro  # For backward compatibility
 
+      - name: Debug - List .patchpro contents
+        if: always()
+        run: |
+          echo "📂 Checking .patchpro directory:"
+          if [ -d .patchpro ]; then
+            echo "✅ .patchpro directory exists"
+            find .patchpro -type f | head -50
+            echo ""
+            echo "📊 .patchpro directory size:"
+            du -sh .patchpro
+            if [ -d .patchpro/traces ]; then
+              echo ""
+              echo "📊 Traces directory:"
+              ls -lh .patchpro/traces/
+            fi
+          else
+            echo "❌ .patchpro directory does NOT exist"
+            echo "Current directory:"
+            pwd
+            ls -la
+          fi
+
       - name: Upload PatchPro artifacts (including telemetry)
         uses: actions/upload-artifact@v4
         if: always()
