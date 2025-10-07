@@ -4,7 +4,9 @@ services:
     name: patchpro-demo
     runtime: python
     plan: free  # Change to 'starter' or higher for production
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install -r requirements.txt
+      pip install git+https://github.com/A3copilotprogram/patchpro-bot.git@main
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION

@@ -19,6 +19,18 @@ try:
 except ImportError:
     OpenAI = None
 
+# Import PatchPro Bot integration
+try:
+    from patchpro_integration import (
+        PatchProIntegration,
+        is_patchpro_available,
+        get_integration_status
+    )
+    PATCHPRO_INTEGRATION_AVAILABLE = True
+except ImportError:
+    PATCHPRO_INTEGRATION_AVAILABLE = False
+    print("[WARNING] PatchPro Bot integration not available - using direct OpenAI fallback")
+
 app = Flask(__name__)
 
 # Sample problematic code snippets for testing
@@ -56,18 +68,62 @@ def bad_function(a,b,c):
 
 def generate_ai_fixes(code, issues, api_key):
     """
-    Generate AI-powered fixes for code issues using OpenAI
-    This is the core PatchPro capability - AI-assisted code fixing
+    Generate AI-powered fixes for code issues
+    Uses PatchPro Bot's agentic system if available, falls back to direct OpenAI
     """
-    if not OpenAI:
-        return None
-    
-    # Validate API key format
     if not api_key or not api_key.startswith('sk-'):
         return "Invalid API key format. OpenAI keys start with 'sk-'"
     
     try:
-        # Initialize with only api_key parameter to avoid any proxy issues
+        # Try PatchPro Bot integration first
+        if PATCHPRO_INTEGRATION_AVAILABLE and is_patchpro_available():
+            print("[INFO] Using PatchPro Bot agentic system for analysis")
+            integration = PatchProIntegration(api_key)
+            result = integration.analyze_and_fix_sync(code, issues)
+            
+            if result.get('success'):
+                # Format PatchPro result
+                analysis = result.get('analysis', '')
+                fixed_code = result.get('fixed_code', code)
+                
+                output = f"""FIXED CODE:
+```python
+{fixed_code}
+```
+
+{analysis}
+
+---
+✨ **Powered by PatchPro Bot Agentic System**
+- Attempts: {result.get('agent_metadata', {}).get('attempts', 1)}
+- Success Rate: {result.get('agent_metadata', {}).get('success_rate', 1.0):.1%}
+- Strategy: {result.get('agent_metadata', {}).get('strategy', 'unified_diff')}
+"""
+                return output
+            else:
+                print(f"[WARNING] PatchPro Bot failed: {result.get('error')}, falling back to direct OpenAI")
+                # Fall through to OpenAI fallback
+        
+        # Fallback to direct OpenAI
+        print("[INFO] Using direct OpenAI for analysis (fallback mode)")
+        return generate_ai_fixes_fallback(code, issues, api_key)
+    
+    except Exception as e:
+        print(f"[ERROR] AI fix generation error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"Error generating AI fixes: {str(e)}"
+
+
+def generate_ai_fixes_fallback(code, issues, api_key):
+    """
+    Fallback: Direct OpenAI integration (original implementation)
+    """
+    if not OpenAI:
+        return "OpenAI library not available"
+    
+    try:
+        # Initialize OpenAI client
         client = OpenAI(
             api_key=api_key,
             max_retries=2,
@@ -75,7 +131,6 @@ def generate_ai_fixes(code, issues, api_key):
         )
     except Exception as e:
         error_msg = str(e)
-        # Provide user-friendly error messages
         if 'proxies' in error_msg.lower():
             return "OpenAI client initialization failed. Please ensure you're using the latest openai library."
         return f"Error initializing OpenAI client: {error_msg}"
@@ -126,7 +181,8 @@ RECOMMENDATIONS:
             temperature=0.3
         )
         
-        return response.choices[0].message.content
+        result = response.choices[0].message.content
+        return f"{result}\n\n---\n⚡ **Direct OpenAI Mode** (PatchPro Bot not available)"
     except Exception as e:
         raise Exception(f"OpenAI API error: {str(e)}")
 
@@ -897,7 +953,9 @@ def analyze_code():
                 "total_issues": len(formatted_issues),
                 "issues": formatted_issues,
                 "categories": categories,
-                "analyzer": "PatchPro AI"
+                "analyzer": "PatchPro AI",
+                "agent_used": False,  # Will be updated if PatchPro Bot is used
+                "patchpro_status": get_integration_status() if PATCHPRO_INTEGRATION_AVAILABLE else None
             }
             
             # Always generate AI analysis if issues found and OpenAI is available
@@ -907,6 +965,9 @@ def analyze_code():
                     if ai_analysis and not ai_analysis.startswith("Error"):
                         response_data['ai_analysis'] = ai_analysis
                         response_data['ai_powered'] = True
+                        # Check if PatchPro Bot was actually used
+                        if PATCHPRO_INTEGRATION_AVAILABLE and is_patchpro_available():
+                            response_data['agent_used'] = True
                     else:
                         response_data['ai_error'] = ai_analysis or "Failed to generate AI analysis"
                         response_data['ai_powered'] = False
@@ -988,6 +1049,23 @@ def analyze_demo_files():
     except Exception as e:
         return jsonify({"error": f"Failed to analyze demo files: {str(e)}"}), 500
 
+@app.route('/api/status')
+def status():
+    """API endpoint to check service status and PatchPro Bot integration"""
+    patchpro_status = get_integration_status() if PATCHPRO_INTEGRATION_AVAILABLE else {
+        'available': False,
+        'version': None,
+        'features': {}
+    }
+    
+    return jsonify({
+        'status': 'healthy',
+        'service': 'PatchPro Demo',
+        'features': ['ruff_analysis', 'ai_powered_fixes', 'url_fetching'],
+        'patchpro_bot': patchpro_status
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
