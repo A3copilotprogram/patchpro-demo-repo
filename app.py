@@ -64,10 +64,23 @@ def generate_ai_fixes(code, issues, api_key):
     if not OpenAI:
         return None
     
+    # Validate API key format
+    if not api_key or not api_key.startswith('sk-'):
+        return "Invalid API key format. OpenAI keys start with 'sk-'"
+    
     try:
-        client = OpenAI(api_key=api_key)
+        # Initialize with only api_key parameter to avoid any proxy issues
+        client = OpenAI(
+            api_key=api_key,
+            max_retries=2,
+            timeout=30.0
+        )
     except Exception as e:
-        return f"Error initializing OpenAI client: {str(e)}"
+        error_msg = str(e)
+        # Provide user-friendly error messages
+        if 'proxies' in error_msg.lower():
+            return "OpenAI client initialization failed. Please ensure you're using the latest openai library."
+        return f"Error initializing OpenAI client: {error_msg}"
     
     # Format issues for the prompt
     issues_summary = "\n".join([
