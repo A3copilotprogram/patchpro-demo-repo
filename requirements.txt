@@ -5,6 +5,9 @@
 Flask==3.0.0
 gunicorn==21.2.0
 
+# HTTP requests for URL fetching
+requests==2.31.0
+
 # Code analysis tools
 ruff==0.5.7
 

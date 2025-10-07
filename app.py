@@ -8,7 +8,12 @@ import sys
 import subprocess
 import json
 import tempfile
+import re
 from pathlib import Path
+try:
+    import requests
+except ImportError:
+    requests = None
 
 app = Flask(__name__)
 
@@ -185,6 +190,51 @@ HOME_TEMPLATE = """
         }
         .get { background: #61affe; color: white; }
         .post { background: #49cc90; color: white; }
+        .url-input-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #e8f4fd;
+            border-radius: 8px;
+            border: 2px solid #61affe;
+        }
+        .url-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #61affe;
+            border-radius: 8px;
+            font-size: 14px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .or-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+        .or-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ddd;
+            z-index: 0;
+        }
+        .or-divider span {
+            background: #fff3cd;
+            padding: 0 15px;
+            position: relative;
+            z-index: 1;
+            color: #856404;
+            font-weight: bold;
+        }
         .loading {
             display: none;
             text-align: center;
@@ -218,12 +268,33 @@ HOME_TEMPLATE = """
         
         <div class="section interactive-section">
             <h2>🚀 Try It Live!</h2>
-            <p>Paste your Python code below or load a sample to see PatchPro in action. The analyzer will check for security issues, code quality problems, and style violations.</p>
+            <p>Paste your Python code, provide a URL to a Python file, or load a sample to see PatchPro in action.</p>
             
             <div style="margin: 15px 0;">
                 <button class="btn btn-sample" onclick="loadSample('security')">Load Security Example</button>
                 <button class="btn btn-sample" onclick="loadSample('quality')">Load Quality Example</button>
                 <button class="btn btn-sample" onclick="loadSample('style')">Load Style Example</button>
+            </div>
+            
+            <div class="url-input-section">
+                <h3 style="margin-top: 0;">📎 Fetch Code from URL</h3>
+                <p style="font-size: 14px; color: #666;">
+                    Enter a URL to a Python file (GitHub, raw.githubusercontent.com, Pastebin, etc.)
+                </p>
+                <input 
+                    type="text" 
+                    id="urlInput" 
+                    class="url-input" 
+                    placeholder="https://raw.githubusercontent.com/user/repo/main/file.py"
+                />
+                <button class="btn" onclick="fetchFromUrl()">📥 Fetch Code from URL</button>
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                    <strong>Supported:</strong> GitHub, raw URLs, gists, pastebin (raw), direct file URLs
+                </div>
+            </div>
+            
+            <div class="or-divider">
+                <span>OR PASTE DIRECTLY</span>
             </div>
             
             <textarea id="codeInput" placeholder="# Paste your Python code here...
@@ -276,6 +347,12 @@ def my_function():
             </div>
             
             <div class="endpoint">
+                <span class="method post">POST</span>
+                <code>/api/fetch-url</code>
+                <p>Fetch Python code from URL - send JSON with <code>{"url": "https://..."}</code></p>
+            </div>
+            
+            <div class="endpoint">
                 <span class="method get">GET</span>
                 <code>/api/samples</code>
                 <p>Get sample code with common issues</p>
@@ -310,12 +387,70 @@ def my_function():
         
         function loadSample(type) {
             document.getElementById('codeInput').value = samples[type];
+            document.getElementById('urlInput').value = '';
             clearResults();
         }
         
         function clearResults() {
             document.getElementById('result').classList.remove('show');
             document.getElementById('result').innerHTML = '';
+        }
+        
+        async function fetchFromUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) {
+                alert('Please enter a URL!');
+                return;
+            }
+            
+            // Validate URL format
+            try {
+                new URL(url);
+            } catch (e) {
+                alert('Please enter a valid URL!');
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('result').classList.remove('show');
+            
+            try {
+                const response = await fetch('/api/fetch-url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error fetching code: ' + data.error);
+                    document.getElementById('loading').classList.remove('show');
+                    return;
+                }
+                
+                // Populate the code editor with fetched code
+                document.getElementById('codeInput').value = data.code;
+                document.getElementById('loading').classList.remove('show');
+                
+                // Show success message
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <div class="issue info">
+                        <strong>✅ Code Fetched Successfully!</strong><br>
+                        Source: ${data.source || url}<br>
+                        Size: ${data.size || 'Unknown'} characters<br>
+                        <small>Click "Analyze Code" to check for issues.</small>
+                    </div>
+                `;
+                resultDiv.classList.add('show');
+                
+            } catch (error) {
+                alert('Failed to fetch code: ' + error.message);
+                document.getElementById('loading').classList.remove('show');
+            }
         }
         
         async function analyzeCode() {
@@ -430,10 +565,86 @@ def info():
             "GET /api/health": "Health check",
             "GET /api/info": "This endpoint",
             "POST /api/analyze": "Analyze Python code",
+            "POST /api/fetch-url": "Fetch code from URL",
             "GET /api/samples": "Get sample problematic code",
             "GET /api/demo-files": "Analyze demo repository files"
         }
     })
+
+@app.route('/api/fetch-url', methods=['POST'])
+def fetch_from_url():
+    """
+    Fetch Python code from a URL
+    Expected JSON: {"url": "https://..."}
+    Returns: {"code": "fetched code", "source": "url", "size": int}
+    """
+    if not requests:
+        return jsonify({"error": "requests library not available"}), 500
+    
+    try:
+        data = request.get_json()
+        if not data or 'url' not in data:
+            return jsonify({"error": "Missing 'url' field in request"}), 400
+        
+        url = data['url'].strip()
+        if not url:
+            return jsonify({"error": "URL cannot be empty"}), 400
+        
+        # Convert GitHub URLs to raw URLs
+        url = convert_to_raw_url(url)
+        
+        # Fetch the content
+        try:
+            response = requests.get(url, timeout=10, headers={
+                'User-Agent': 'PatchPro-Demo/1.0'
+            })
+            response.raise_for_status()
+            
+            code = response.text
+            
+            # Basic validation - check if it looks like Python code
+            if not code.strip():
+                return jsonify({"error": "Fetched content is empty"}), 400
+            
+            # Check if it's likely Python code (basic heuristic)
+            if len(code) > 1000000:  # 1MB limit
+                return jsonify({"error": "File too large (max 1MB)"}), 400
+            
+            return jsonify({
+                "success": True,
+                "code": code,
+                "source": url,
+                "size": len(code),
+                "lines": len(code.splitlines())
+            })
+            
+        except requests.Timeout:
+            return jsonify({"error": "Request timed out (max 10 seconds)"}), 408
+        except requests.HTTPError as e:
+            return jsonify({"error": f"HTTP error: {e.response.status_code}"}), 400
+        except requests.RequestException as e:
+            return jsonify({"error": f"Failed to fetch URL: {str(e)}"}), 400
+            
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
+def convert_to_raw_url(url):
+    """Convert GitHub URLs to raw content URLs"""
+    # GitHub blob URL to raw URL
+    if 'github.com' in url and '/blob/' in url:
+        url = url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
+    
+    # GitHub gist URL to raw URL
+    if 'gist.github.com' in url and '/raw/' not in url:
+        # Try to append /raw if it's a gist
+        if url.endswith('.py') or url.count('/') >= 4:
+            url = url + '/raw' if not url.endswith('/') else url + 'raw'
+    
+    # Pastebin to raw
+    if 'pastebin.com' in url and '/raw/' not in url:
+        url = url.replace('pastebin.com/', 'pastebin.com/raw/')
+    
+    return url
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_code():
