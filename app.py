@@ -64,7 +64,10 @@ def generate_ai_fixes(code, issues, api_key):
     if not OpenAI:
         return None
     
-    client = OpenAI(api_key=api_key)
+    try:
+        client = OpenAI(api_key=api_key)
+    except Exception as e:
+        return f"Error initializing OpenAI client: {str(e)}"
     
     # Format issues for the prompt
     issues_summary = "\n".join([
@@ -327,7 +330,7 @@ HOME_TEMPLATE = """
 <body>
     <div class="container">
         <h1>🔧 PatchPro Live Demo</h1>
-        <p class="subtitle">AI-Powered Code Analysis & Automatic Fixing</p>
+                    <p class="subtitle">AI-Powered Code Analysis & Automatic Fixing - Bring Your Own API Key</p>
         <div class="badge">Status: Running</div>
         <div class="badge">Python {{ python_version }}</div>
         <div class="badge">AI-Powered</div>
@@ -374,14 +377,15 @@ def my_function():
     print('Hello')
 "></textarea>
             
-            <div style="margin: 15px 0;">
-                <label style="display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer;">
-                    <input type="checkbox" id="aiFixesToggle" style="width: 18px; height: 18px; cursor: pointer;">
-                    <span style="user-select: none;">
-                        🤖 <strong>Generate AI-Powered Fixes (PatchPro)</strong>
-                        <span style="color: #666; font-size: 12px;">(Requires OpenAI API Key)</span>
-                    </span>
+            <div style="margin: 15px 0; padding: 15px; background: #f5f5f5; border-radius: 8px; border: 1px solid #ddd;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: bold;">
+                    🔑 OpenAI API Key (Required for AI Analysis)
                 </label>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." 
+                    style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 13px;">
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    💡 Your API key is only used for this analysis and is never stored. Get one at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>
+                </small>
             </div>
             
             <button class="btn" onclick="analyzeCode()">🔍 Analyze Code</button>
@@ -536,13 +540,13 @@ def my_function():
                 return;
             }
             
-            const withAiFixes = document.getElementById('aiFixesToggle').checked;
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
             const loadingText = document.getElementById('loadingText');
             
-            if (withAiFixes) {
-                loadingText.textContent = 'Analyzing code and generating AI fixes... (this may take 10-15 seconds)';
+            if (apiKey) {
+                loadingText.textContent = '🤖 AI analyzing your code and generating fixes... (this may take 10-15 seconds)';
             } else {
-                loadingText.textContent = 'Analyzing your code...';
+                loadingText.textContent = 'Analyzing your code... (Add API key for AI-powered fixes)';
             }
             
             document.getElementById('loading').classList.add('show');
@@ -556,7 +560,7 @@ def my_function():
                     },
                     body: JSON.stringify({ 
                         code: code,
-                        with_ai_fixes: withAiFixes
+                        api_key: apiKey
                     })
                 });
                 
@@ -616,15 +620,10 @@ def my_function():
                 html += '</pre>';
                 html += '<p style="font-size: 12px; color: #666; margin-bottom: 0;">✨ <strong>AI-powered by OpenAI GPT-4</strong> | ⚠️ Review and test all suggestions before use</p>';
                 html += '</div>';
-            } else if (data.ai_powered === false) {
+            } else if (data.ai_powered === false && data.ai_error) {
                 html += '<div class="issue warning" style="margin-top: 20px;">';
-                html += '<strong>🤖 AI Analysis:</strong> ';
-                if (data.ai_error) {
-                    html += data.ai_error;
-                } else {
-                    html += 'No AI analysis available for this code.';
-                }
-                html += '<br><small>Showing static analysis only. Set OPENAI_API_KEY to enable AI-powered fixes.</small>';
+                html += '<strong>🤖 AI Analysis:</strong> ' + data.ai_error;
+                html += '<br><small>Enter your OpenAI API key above to enable AI-powered fixes and suggestions.</small>';
                 html += '</div>';
             }
             
@@ -775,6 +774,8 @@ def analyze_code():
             return jsonify({"error": "Missing 'code' field in request"}), 400
         
         code = data['code']
+        api_key = data.get('api_key', '').strip()  # Get API key from request
+        
         if not code.strip():
             return jsonify({"error": "Code cannot be empty"}), 400
         
@@ -836,21 +837,23 @@ def analyze_code():
             }
             
             # Always generate AI analysis if issues found and OpenAI is available
-            if formatted_issues and OpenAI:
-                api_key = os.environ.get('OPENAI_API_KEY')
-                if api_key:
-                    try:
-                        ai_analysis = generate_ai_fixes(code, formatted_issues, api_key)
+            if formatted_issues and OpenAI and api_key:
+                try:
+                    ai_analysis = generate_ai_fixes(code, formatted_issues, api_key)
+                    if ai_analysis and not ai_analysis.startswith("Error"):
                         response_data['ai_analysis'] = ai_analysis
                         response_data['ai_powered'] = True
-                    except Exception as e:
-                        response_data['ai_analysis'] = None
-                        response_data['ai_error'] = f"AI analysis unavailable: {str(e)}"
+                    else:
+                        response_data['ai_error'] = ai_analysis or "Failed to generate AI analysis"
                         response_data['ai_powered'] = False
-                else:
+                except Exception as e:
                     response_data['ai_analysis'] = None
-                    response_data['ai_error'] = "Set OPENAI_API_KEY environment variable to enable AI-powered analysis"
+                    response_data['ai_error'] = f"AI analysis unavailable: {str(e)}"
                     response_data['ai_powered'] = False
+            elif formatted_issues and not api_key:
+                response_data['ai_powered'] = False
+                response_data['ai_analysis'] = None
+                response_data['ai_error'] = "Enter your OpenAI API key above to enable AI-powered fixes"
             else:
                 response_data['ai_powered'] = False
                 response_data['ai_analysis'] = None
