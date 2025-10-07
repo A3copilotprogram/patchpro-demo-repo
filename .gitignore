@@ -4,3 +4,25 @@ artifact/
 patchpro_demo.egg-info/
 uv.lock
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Deployment
+.render/

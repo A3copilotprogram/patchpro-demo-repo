@@ -1,0 +1,16 @@
+services:
+  # Web Service
+  - type: web
+    name: patchpro-demo
+    runtime: python
+    plan: free  # Change to 'starter' or higher for production
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: PORT
+        value: 10000
+    # Optional: Add environment variables from Render dashboard
+    # - key: OPENAI_API_KEY
+    #   sync: false  # Set this as a secret in Render dashboard
