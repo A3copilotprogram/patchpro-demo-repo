@@ -758,14 +758,19 @@ def fetch_from_url():
         if not url:
             return jsonify({"error": "URL cannot be empty"}), 400
         
+        # Log original URL for debugging
+        print(f"[DEBUG] Original URL: {url}")
+        
         # Convert GitHub URLs to raw URLs
         url = convert_to_raw_url(url)
+        print(f"[DEBUG] Converted URL: {url}")
         
         # Fetch the content
         try:
             response = requests.get(url, timeout=10, headers={
                 'User-Agent': 'PatchPro-Demo/1.0'
             })
+            print(f"[DEBUG] Response status: {response.status_code}")
             response.raise_for_status()
             
             code = response.text
@@ -787,13 +792,19 @@ def fetch_from_url():
             })
             
         except requests.Timeout:
+            print(f"[ERROR] Timeout fetching URL: {url}")
             return jsonify({"error": "Request timed out (max 10 seconds)"}), 408
         except requests.HTTPError as e:
-            return jsonify({"error": f"HTTP error: {e.response.status_code}"}), 400
+            print(f"[ERROR] HTTP error: {e.response.status_code} for URL: {url}")
+            return jsonify({"error": f"HTTP error: {e.response.status_code} - {e.response.reason}"}), 400
         except requests.RequestException as e:
+            print(f"[ERROR] Request exception: {str(e)} for URL: {url}")
             return jsonify({"error": f"Failed to fetch URL: {str(e)}"}), 400
             
     except Exception as e:
+        print(f"[ERROR] Unexpected error in fetch_from_url: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 def convert_to_raw_url(url):
