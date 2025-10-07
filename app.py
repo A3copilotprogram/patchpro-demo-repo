@@ -54,8 +54,6 @@ def bad_function(a,b,c):
 '''
 }
 
-app = Flask(__name__)
-
 def generate_ai_fixes(code, issues, api_key):
     """
     Generate AI-powered fixes for code issues using OpenAI
@@ -132,7 +130,22 @@ RECOMMENDATIONS:
     except Exception as e:
         raise Exception(f"OpenAI API error: {str(e)}")
 
-app = Flask(__name__)
+# Error handlers to return JSON instead of HTML
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Not found", "status": 404}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error", "status": 500}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through HTTP errors
+    if hasattr(e, 'code'):
+        return jsonify({"error": str(e), "status": e.code}), e.code
+    # Handle non-HTTP exceptions
+    return jsonify({"error": f"An error occurred: {str(e)}", "status": 500}), 500
 
 # HTML template for the home page with interactive code analysis
 HOME_TEMPLATE = """
@@ -516,6 +529,19 @@ def my_function():
                     body: JSON.stringify({ url: url })
                 });
                 
+                // Check if response is ok
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                // Check content type
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Received non-JSON response:', text.substring(0, 200));
+                    throw new Error('Server returned invalid response. Expected JSON but got HTML.');
+                }
+                
                 const data = await response.json();
                 
                 if (data.error) {
@@ -577,11 +603,25 @@ def my_function():
                     })
                 });
                 
+                // Check if response is ok
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                // Check content type before parsing
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Received non-JSON response:', text.substring(0, 200));
+                    throw new Error('Server returned invalid response. Expected JSON but got HTML. Check console for details.');
+                }
+                
                 const data = await response.json();
                 displayResults(data);
             } catch (error) {
+                console.error('Analysis error:', error);
                 document.getElementById('result').innerHTML = 
-                    '<div class="issue"><strong>Error:</strong> ' + error.message + '</div>';
+                    '<div class="issue"><strong>Error:</strong> ' + error.message + '<br><small>Check browser console for more details.</small></div>';
                 document.getElementById('result').classList.add('show');
             } finally {
                 document.getElementById('loading').classList.remove('show');
