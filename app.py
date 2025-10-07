@@ -14,6 +14,10 @@ try:
     import requests
 except ImportError:
     requests = None
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 app = Flask(__name__)
 
@@ -49,6 +53,68 @@ def bad_function(a,b,c):
     return None
 '''
 }
+
+app = Flask(__name__)
+
+def generate_ai_fixes(code, issues, api_key):
+    """
+    Generate AI-powered fixes for code issues using OpenAI
+    This is the core PatchPro capability - AI-assisted code fixing
+    """
+    if not OpenAI:
+        return None
+    
+    client = OpenAI(api_key=api_key)
+    
+    # Format issues for the prompt
+    issues_summary = "\n".join([
+        f"- Line {issue['line']}: {issue['code']} - {issue['message']}"
+        for issue in issues[:10]  # Limit to first 10 issues
+    ])
+    
+    prompt = f"""You are PatchPro, an AI-powered code analysis and fixing assistant. 
+
+Analyze this Python code and fix the following issues:
+
+{issues_summary}
+
+Original Code:
+```python
+{code}
+```
+
+Provide:
+1. Fixed code (complete, working version)
+2. Brief explanation of changes made
+3. Any additional recommendations
+
+Format your response as:
+FIXED CODE:
+```python
+[your fixed code here]
+```
+
+CHANGES MADE:
+[list of changes]
+
+RECOMMENDATIONS:
+[optional recommendations]
+"""
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are PatchPro, an expert Python code analyzer and fixer. Provide clean, working code fixes."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.3
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        raise Exception(f"OpenAI API error: {str(e)}")
 
 app = Flask(__name__)
 
@@ -308,12 +374,22 @@ def my_function():
     print('Hello')
 "></textarea>
             
+            <div style="margin: 15px 0;">
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer;">
+                    <input type="checkbox" id="aiFixesToggle" style="width: 18px; height: 18px; cursor: pointer;">
+                    <span style="user-select: none;">
+                        🤖 <strong>Generate AI-Powered Fixes (PatchPro)</strong>
+                        <span style="color: #666; font-size: 12px;">(Requires OpenAI API Key)</span>
+                    </span>
+                </label>
+            </div>
+            
             <button class="btn" onclick="analyzeCode()">🔍 Analyze Code</button>
             <button class="btn" onclick="clearResults()">Clear</button>
             
             <div class="loading" id="loading">
                 <div class="spinner"></div>
-                <p>Analyzing your code...</p>
+                <p id="loadingText">Analyzing your code...</p>
             </div>
             
             <div class="result" id="result"></div>
@@ -460,6 +536,15 @@ def my_function():
                 return;
             }
             
+            const withAiFixes = document.getElementById('aiFixesToggle').checked;
+            const loadingText = document.getElementById('loadingText');
+            
+            if (withAiFixes) {
+                loadingText.textContent = 'Analyzing code and generating AI fixes... (this may take 10-15 seconds)';
+            } else {
+                loadingText.textContent = 'Analyzing your code...';
+            }
+            
             document.getElementById('loading').classList.add('show');
             document.getElementById('result').classList.remove('show');
             
@@ -469,7 +554,10 @@ def my_function():
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify({ 
+                        code: code,
+                        with_ai_fixes: withAiFixes
+                    })
                 });
                 
                 const data = await response.json();
@@ -493,6 +581,7 @@ def my_function():
             }
             
             let html = '<h3>📊 Analysis Results</h3>';
+            html += '<p><strong>Analyzer:</strong> ' + (data.analyzer || 'Ruff + PatchPro') + '</p>';
             html += '<p><strong>Total Issues Found:</strong> ' + data.total_issues + '</p>';
             
             if (data.total_issues === 0) {
@@ -518,8 +607,31 @@ def my_function():
                 html += '</ul>';
             }
             
+            // Display AI-generated fixes if available
+            if (data.ai_fixes) {
+                html += '<div style="margin-top: 30px; padding: 20px; background: #e8f5e9; border-radius: 8px; border: 2px solid #4caf50;">';
+                html += '<h3 style="margin-top: 0;">🤖 PatchPro AI-Generated Fixes</h3>';
+                html += '<pre style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; max-height: 500px;">';
+                html += escapeHtml(data.ai_fixes);
+                html += '</pre>';
+                html += '<p style="font-size: 12px; color: #666; margin-bottom: 0;">⚠️ AI-generated fixes should be reviewed before use. Test thoroughly!</p>';
+                html += '</div>';
+            } else if (data.ai_fixes_available === false) {
+                if (data.ai_fixes_error) {
+                    html += '<div class="issue warning" style="margin-top: 20px;">';
+                    html += '<strong>⚠️ AI Fixes Not Available:</strong> ' + data.ai_fixes_error;
+                    html += '</div>';
+                }
+            }
+            
             resultDiv.innerHTML = html;
             resultDiv.classList.add('show');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>
@@ -649,9 +761,9 @@ def convert_to_raw_url(url):
 @app.route('/api/analyze', methods=['POST'])
 def analyze_code():
     """
-    Analyze Python code for quality issues
-    Expected JSON: {"code": "python code string"}
-    Returns: {"issues": [...], "total_issues": int}
+    Analyze Python code for quality issues with optional AI-powered fixes
+    Expected JSON: {"code": "python code string", "with_ai_fixes": false}
+    Returns: {"issues": [...], "total_issues": int, "ai_fixes": "..." (if requested)}
     """
     try:
         data = request.get_json()
@@ -662,6 +774,8 @@ def analyze_code():
         if not code.strip():
             return jsonify({"error": "Code cannot be empty"}), 400
         
+        with_ai_fixes = data.get('with_ai_fixes', False)
+        
         # Create a temporary file to analyze
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
             f.write(code)
@@ -670,7 +784,7 @@ def analyze_code():
         try:
             # Run Ruff analysis
             result = subprocess.run(
-                ['python', '-m', 'ruff', 'check', '--output-format=json', temp_file],
+                ['python3', '-m', 'ruff', 'check', '--output-format=json', temp_file],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -711,13 +825,32 @@ def analyze_code():
                     'severity': 'error' if code.startswith('F') else 'warning'
                 })
             
-            return jsonify({
+            response_data = {
                 "success": True,
                 "total_issues": len(formatted_issues),
                 "issues": formatted_issues,
                 "categories": categories,
-                "analyzer": "Ruff"
-            })
+                "analyzer": "Ruff + PatchPro"
+            }
+            
+            # Generate AI fixes if requested and OpenAI is available
+            if with_ai_fixes and formatted_issues and OpenAI:
+                api_key = os.environ.get('OPENAI_API_KEY')
+                if api_key:
+                    try:
+                        ai_fixes = generate_ai_fixes(code, formatted_issues, api_key)
+                        response_data['ai_fixes'] = ai_fixes
+                        response_data['ai_fixes_available'] = True
+                    except Exception as e:
+                        response_data['ai_fixes_error'] = f"AI fix generation failed: {str(e)}"
+                        response_data['ai_fixes_available'] = False
+                else:
+                    response_data['ai_fixes_available'] = False
+                    response_data['ai_fixes_error'] = "OPENAI_API_KEY not configured"
+            else:
+                response_data['ai_fixes_available'] = bool(OpenAI and os.environ.get('OPENAI_API_KEY'))
+            
+            return jsonify(response_data)
             
         finally:
             # Clean up temp file
