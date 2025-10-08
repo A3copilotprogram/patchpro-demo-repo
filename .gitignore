@@ -5,7 +5,7 @@ patchpro_demo.egg-info/
 uv.lock
 .env
 
-# PatchPro runtime artifacts
+# PatchPro runtime artifacts (not configuration)
 .patchpro/
 *.cast
 ruff_findings.json
