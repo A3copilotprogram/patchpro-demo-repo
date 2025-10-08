@@ -4,3 +4,9 @@ artifact/
 patchpro_demo.egg-info/
 uv.lock
 .env
+
+# PatchPro runtime artifacts
+.patchpro/
+*.cast
+ruff_findings.json
+test_patches/
