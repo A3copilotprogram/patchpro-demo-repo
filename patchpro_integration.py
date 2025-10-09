@@ -16,6 +16,15 @@ try:
 except ImportError:
     PATCHPRO_AVAILABLE = False
     logging.warning("PatchPro Bot not available - falling back to direct OpenAI")
+    
+    # Create dummy classes for type hints when PatchPro is not available
+    class AnalysisFinding:
+        def __init__(self, **kwargs):
+            pass
+    
+    class CodeLocation:
+        def __init__(self, **kwargs):
+            pass
 
 
 class PatchProIntegration:

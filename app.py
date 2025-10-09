@@ -31,6 +31,14 @@ except ImportError:
     PATCHPRO_INTEGRATION_AVAILABLE = False
     print("[WARNING] PatchPro Bot integration not available - using direct OpenAI fallback")
 
+# Import Repository Analyzer
+try:
+    from repo_analyzer import RepositoryAnalyzer
+    REPO_ANALYZER_AVAILABLE = True
+except ImportError:
+    REPO_ANALYZER_AVAILABLE = False
+    print("[WARNING] Repository analyzer not available")
+
 app = Flask(__name__)
 
 # Sample problematic code snippets for testing
@@ -481,6 +489,51 @@ def my_function():
             <div class="result" id="result"></div>
         </div>
 
+        <div class="section interactive-section">
+            <h2>🏢 Analyze Entire Repository</h2>
+            <p>Analyze complete GitHub repositories for comprehensive code quality assessment. Get insights across all Python files in a project.</p>
+            
+            <div style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-radius: 8px; border: 2px solid #2196f3;">
+                <h3 style="margin-top: 0;">📊 Repository Analysis</h3>
+                <input 
+                    type="text" 
+                    id="repoUrlInput" 
+                    class="url-input" 
+                    placeholder="https://github.com/owner/repository"
+                    style="border-color: #2196f3;"
+                />
+                <div style="margin: 10px 0;">
+                    <label style="margin-right: 15px;">
+                        <strong>Branch:</strong>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="repoBranchInput" 
+                        placeholder="main" 
+                        style="width: 150px; padding: 8px; border: 1px solid #2196f3; border-radius: 4px;"
+                    />
+                    <small style="color: #666; margin-left: 10px;">Leave empty for default branch</small>
+                </div>
+                <button class="btn" onclick="analyzeRepository()" style="background: #2196f3;">
+                    📊 Analyze Repository
+                </button>
+                <button class="btn" onclick="getRepoInfo()" style="background: #4caf50;">
+                    ℹ️ Get Repo Info
+                </button>
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                    <strong>Features:</strong> Analyzes up to 50 Python files, categorizes issues, shows top problematic files
+                    <br><strong>Note:</strong> Analysis may take 30-60 seconds for large repositories
+                </div>
+            </div>
+            
+            <div class="loading" id="repoLoading" style="display: none;">
+                <div class="spinner"></div>
+                <p id="repoLoadingText">📦 Cloning and analyzing repository...</p>
+            </div>
+            
+            <div class="result" id="repoResult" style="display: none;"></div>
+        </div>
+
         <div class="section">
             <h3>📡 API Endpoints</h3>
             
@@ -524,6 +577,18 @@ def my_function():
                 <span class="method get">GET</span>
                 <code>/api/demo-files</code>
                 <p>Analyze existing demo files in the repository</p>
+            </div>
+            
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <code>/api/analyze-repo</code>
+                <p>Analyze entire GitHub repository - send JSON with <code>{"repo_url": "https://github.com/owner/repo", "branch": "main"}</code></p>
+            </div>
+            
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <code>/api/repo-info</code>
+                <p>Get repository information - send JSON with <code>{"repo_url": "https://github.com/owner/repo"}</code></p>
             </div>
         </div>
 
@@ -745,6 +810,239 @@ def my_function():
             div.textContent = text;
             return div.innerHTML;
         }
+        
+        // Repository Analysis Functions
+        async function analyzeRepository() {
+            const repoUrl = document.getElementById('repoUrlInput').value.trim();
+            const branch = document.getElementById('repoBranchInput').value.trim() || 'main';
+            
+            if (!repoUrl) {
+                alert('Please enter a repository URL!');
+                return;
+            }
+            
+            if (!repoUrl.includes('github.com')) {
+                alert('Only GitHub repositories are supported!');
+                return;
+            }
+            
+            document.getElementById('repoLoading').style.display = 'block';
+            document.getElementById('repoResult').style.display = 'none';
+            document.getElementById('repoLoadingText').textContent = 'Cloning and analyzing repository... (this may take 30-60 seconds)';
+            
+            try {
+                const response = await fetch('/api/analyze-repo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        repo_url: repoUrl,
+                        branch: branch
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayRepositoryResults(data);
+                
+            } catch (error) {
+                console.error('Repository analysis error:', error);
+                document.getElementById('repoResult').innerHTML = 
+                    '<div class="issue"><strong>Error:</strong> ' + error.message + '</div>';
+                document.getElementById('repoResult').style.display = 'block';
+            } finally {
+                document.getElementById('repoLoading').style.display = 'none';
+            }
+        }
+        
+        async function getRepoInfo() {
+            const repoUrl = document.getElementById('repoUrlInput').value.trim();
+            
+            if (!repoUrl) {
+                alert('Please enter a repository URL!');
+                return;
+            }
+            
+            document.getElementById('repoLoading').style.display = 'block';
+            document.getElementById('repoResult').style.display = 'none';
+            document.getElementById('repoLoadingText').textContent = 'Fetching repository information...';
+            
+            try {
+                const response = await fetch('/api/repo-info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ repo_url: repoUrl })
+                });
+                
+                const data = await response.json();
+                displayRepositoryInfo(data);
+                
+            } catch (error) {
+                console.error('Repository info error:', error);
+                document.getElementById('repoResult').innerHTML = 
+                    '<div class="issue"><strong>Error:</strong> ' + error.message + '</div>';
+                document.getElementById('repoResult').style.display = 'block';
+            } finally {
+                document.getElementById('repoLoading').style.display = 'none';
+            }
+        }
+        
+        function displayRepositoryResults(data) {
+            const resultDiv = document.getElementById('repoResult');
+            
+            if (data.error) {
+                resultDiv.innerHTML = '<div class="issue"><strong>Error:</strong> ' + data.error + '</div>';
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            let html = '<h3>📊 Repository Analysis Results</h3>';
+            
+            // Repository info
+            html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+            html += '<h4 style="margin-top: 0;">📦 Repository Overview</h4>';
+            html += '<p><strong>URL:</strong> ' + data.repository.url + '</p>';
+            html += '<p><strong>Branch:</strong> ' + data.repository.branch + '</p>';
+            html += '<p><strong>Files Analyzed:</strong> ' + data.repository.files_analyzed + ' Python files</p>';
+            html += '<p><strong>Total Size:</strong> ' + Math.round(data.repository.total_size_bytes / 1024) + ' KB</p>';
+            html += '<p><strong>Total Lines:</strong> ' + data.repository.total_lines.toLocaleString() + '</p>';
+            html += '<p><strong>Analysis Time:</strong> ' + data.analysis_time + ' seconds</p>';
+            html += '</div>';
+            
+            // Analysis summary
+            html += '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+            html += '<h4 style="margin-top: 0;">🔍 Analysis Summary</h4>';
+            html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+            
+            // Left column
+            html += '<div>';
+            html += '<p><strong>Total Issues:</strong> ' + data.analysis.total_issues + '</p>';
+            html += '<p><strong>Files with Issues:</strong> ' + data.analysis.files_with_issues + ' / ' + data.repository.files_analyzed + '</p>';
+            html += '<p><strong>Issue Density:</strong> ' + data.analysis.issue_density + ' per 1000 lines</p>';
+            html += '</div>';
+            
+            // Right column
+            html += '<div>';
+            html += '<p><strong>Quality Grade:</strong> <span style="font-size: 1.2em; font-weight: bold; color: ' + getGradeColor(data.analysis.quality_grade) + ';">' + data.analysis.quality_grade + '</span></p>';
+            if (data.analysis.file_stats) {
+                html += '<p><strong>Clean Files:</strong> ' + data.analysis.file_stats.without_issues + '</p>';
+                html += '<p><strong>Failed Analysis:</strong> ' + data.analysis.file_stats.analysis_failed + '</p>';
+            }
+            html += '</div>';
+            html += '</div>';
+
+            html += '<h5>📊 Issue Categories:</h5><ul>';
+            if (data.analysis.categories.security > 0) html += '<li>🔒 Security Issues: ' + data.analysis.categories.security + '</li>';
+            if (data.analysis.categories.quality > 0) html += '<li>📊 Quality Issues: ' + data.analysis.categories.quality + '</li>';
+            if (data.analysis.categories.style > 0) html += '<li>✨ Style Issues: ' + data.analysis.categories.style + '</li>';
+            html += '</ul></div>';
+            
+            // Directory analysis
+            if (data.directory_analysis && Object.keys(data.directory_analysis).length > 0) {
+                html += '<div style="background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+                html += '<h4 style="margin-top: 0;">📁 Directory Analysis</h4>';
+                Object.entries(data.directory_analysis).forEach(([dir, stats]) => {
+                    html += '<div style="margin: 8px 0; padding: 8px; background: white; border-radius: 4px;">';
+                    html += '<strong>' + dir + '/</strong> - ' + stats.files + ' files, ' + stats.issues + ' issues';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // Top problematic files
+            if (data.top_problematic_files && data.top_problematic_files.length > 0) {
+                html += '<div style="background: #ffebee; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+                html += '<h4 style="margin-top: 0;">🚨 Top Problematic Files</h4>';
+                data.top_problematic_files.forEach((file, index) => {
+                    html += '<div style="margin: 10px 0; padding: 12px; background: white; border-radius: 4px; border-left: 4px solid ' + getSeverityColor(file.issues) + ';">';
+                    html += '<div style="display: flex; justify-content: space-between; align-items: center;">';
+                    html += '<strong>' + file.file + '</strong>';
+                    html += '<span style="background: ' + getSeverityColor(file.issues) + '; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">' + file.issues + ' issues</span>';
+                    html += '</div>';
+                    html += '<div style="margin-top: 5px; font-size: 13px; color: #666;">';
+                    html += 'Lines: ' + file.lines + ' | Density: ' + file.issue_density + '% | ';
+                    if (file.categories.security > 0) html += '🔒 ' + file.categories.security + ' ';
+                    if (file.categories.quality > 0) html += '📊 ' + file.categories.quality + ' ';
+                    if (file.categories.style > 0) html += '✨ ' + file.categories.style + ' ';
+                    html += '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // Warnings and limitations
+            if (data.files_truncated) {
+                html += '<div class="issue warning" style="margin-top: 20px;">';
+                html += '<strong>⚠️ Analysis Limited:</strong> Only the first ' + data.max_files_limit + ' files were analyzed. ';
+                html += 'Large repositories may have additional files not included in this analysis.';
+                html += '</div>';
+            }
+            
+            html += '<div style="margin-top: 20px; font-size: 12px; color: #666;">';
+            html += '<p><strong>Note:</strong> This analysis shows static code issues found by Ruff. ';
+            html += 'Consider running additional tools for comprehensive security analysis.</p>';
+            html += '</div>';
+            
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+        }
+        
+        function displayRepositoryInfo(data) {
+            const resultDiv = document.getElementById('repoResult');
+            
+            if (data.error) {
+                resultDiv.innerHTML = '<div class="issue"><strong>Error:</strong> ' + data.error + '</div>';
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            let html = '<h3>ℹ️ Repository Information</h3>';
+            
+            html += '<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0;">';
+            html += '<h4 style="margin-top: 0;">📦 ' + (data.name || 'Repository') + '</h4>';
+            if (data.description) html += '<p><strong>Description:</strong> ' + data.description + '</p>';
+            if (data.language) html += '<p><strong>Primary Language:</strong> ' + data.language + '</p>';
+            if (data.stars !== undefined) html += '<p><strong>Stars:</strong> ' + data.stars.toLocaleString() + ' ⭐</p>';
+            if (data.forks !== undefined) html += '<p><strong>Forks:</strong> ' + data.forks.toLocaleString() + ' 🍴</p>';
+            if (data.size !== undefined) html += '<p><strong>Size:</strong> ' + data.size + ' KB</p>';
+            if (data.default_branch) html += '<p><strong>Default Branch:</strong> ' + data.default_branch + '</p>';
+            if (data.last_updated) {
+                const date = new Date(data.last_updated).toLocaleDateString();
+                html += '<p><strong>Last Updated:</strong> ' + date + '</p>';
+            }
+            html += '</div>';
+            
+            html += '<div style="margin-top: 15px;">';
+            html += '<button class="btn" onclick="analyzeRepository()" style="background: #2196f3;">📊 Analyze This Repository</button>';
+            html += '</div>';
+            
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+        }
+        
+        function getGradeColor(grade) {
+            const colors = {
+                'A+': '#4caf50',
+                'A': '#8bc34a', 
+                'B': '#ffeb3b',
+                'C': '#ff9800',
+                'D': '#f44336'
+            };
+            return colors[grade] || '#666';
+        }
+        
+        function getSeverityColor(issueCount) {
+            if (issueCount >= 10) return '#f44336';  // Red
+            if (issueCount >= 5) return '#ff9800';   // Orange  
+            if (issueCount >= 1) return '#ffeb3b';   // Yellow
+            return '#4caf50';  // Green
+        }
     </script>
 </body>
 </html>
@@ -771,27 +1069,50 @@ def health():
 @app.route('/api/info')
 def info():
     """Project information endpoint"""
+    features = [
+        "Live code analysis via web interface",
+        "REST API for code quality checking",
+        "Security vulnerability detection",
+        "Code style and quality validation",
+        "Sample code examples",
+        "CI/CD integration ready"
+    ]
+    
+    endpoints = {
+        "GET /": "Interactive web interface",
+        "GET /api/health": "Health check",
+        "GET /api/info": "This endpoint",
+        "POST /api/analyze": "Analyze Python code",
+        "POST /api/fetch-url": "Fetch code from URL",
+        "GET /api/samples": "Get sample problematic code",
+        "GET /api/demo-files": "Analyze demo repository files"
+    }
+    
+    # Add repository analysis features if available
+    if REPO_ANALYZER_AVAILABLE:
+        features.extend([
+            "Full repository analysis",
+            "GitHub repository cloning and analysis",
+            "Multi-file code quality assessment",
+            "Repository-wide issue categorization"
+        ])
+        endpoints.update({
+            "POST /api/analyze-repo": "Analyze entire GitHub repository",
+            "POST /api/repo-info": "Get repository information"
+        })
+    
     return jsonify({
         "name": "patchpro-demo",
-        "description": "Interactive demo for PatchPro - Live code analysis and quality checking",
+        "description": "Interactive demo for PatchPro - Live code analysis and repository assessment",
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",
-        "features": [
-            "Live code analysis via web interface",
-            "REST API for code quality checking",
-            "Security vulnerability detection",
-            "Code style and quality validation",
-            "Sample code examples",
-            "CI/CD integration ready"
-        ],
+        "features": features,
         "repository": "https://github.com/A3copilotprogram/patchpro-demo-repo",
-        "endpoints": {
-            "GET /": "Interactive web interface",
-            "GET /api/health": "Health check",
-            "GET /api/info": "This endpoint",
-            "POST /api/analyze": "Analyze Python code",
-            "POST /api/fetch-url": "Fetch code from URL",
-            "GET /api/samples": "Get sample problematic code",
-            "GET /api/demo-files": "Analyze demo repository files"
+        "endpoints": endpoints,
+        "capabilities": {
+            "single_file_analysis": True,
+            "repository_analysis": REPO_ANALYZER_AVAILABLE,
+            "ai_powered_fixes": bool(OpenAI),
+            "patchpro_integration": PATCHPRO_INTEGRATION_AVAILABLE
         }
     })
 
@@ -1048,6 +1369,78 @@ def analyze_demo_files():
         
     except Exception as e:
         return jsonify({"error": f"Failed to analyze demo files: {str(e)}"}), 500
+
+@app.route('/api/analyze-repo', methods=['POST'])
+def analyze_repository():
+    """
+    Analyze an entire GitHub repository
+    Expected JSON: {"repo_url": "https://github.com/owner/repo", "branch": "main"}
+    Returns: Comprehensive repository analysis
+    """
+    if not REPO_ANALYZER_AVAILABLE:
+        return jsonify({
+            "error": "Repository analyzer not available",
+            "note": "This feature requires the repo_analyzer module"
+        }), 503
+    
+    try:
+        data = request.get_json()
+        if not data or 'repo_url' not in data:
+            return jsonify({"error": "Missing 'repo_url' field in request"}), 400
+        
+        repo_url = data['repo_url'].strip()
+        branch = data.get('branch', 'main')
+        
+        if not repo_url:
+            return jsonify({"error": "Repository URL cannot be empty"}), 400
+        
+        # Validate GitHub URL
+        if 'github.com' not in repo_url:
+            return jsonify({"error": "Only GitHub repositories are supported"}), 400
+        
+        # Initialize analyzer
+        analyzer = RepositoryAnalyzer(max_files=50, max_file_size=100000)
+        
+        # Perform analysis
+        result = analyzer.analyze_repository(repo_url, branch)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": f"Repository analysis failed: {str(e)}"}), 500
+
+@app.route('/api/repo-info', methods=['POST'])
+def get_repository_info():
+    """
+    Get basic repository information
+    Expected JSON: {"repo_url": "https://github.com/owner/repo"}
+    Returns: Repository metadata
+    """
+    if not REPO_ANALYZER_AVAILABLE:
+        return jsonify({
+            "error": "Repository analyzer not available"
+        }), 503
+    
+    try:
+        data = request.get_json()
+        if not data or 'repo_url' not in data:
+            return jsonify({"error": "Missing 'repo_url' field in request"}), 400
+        
+        repo_url = data['repo_url'].strip()
+        
+        if not repo_url:
+            return jsonify({"error": "Repository URL cannot be empty"}), 400
+        
+        # Initialize analyzer
+        analyzer = RepositoryAnalyzer()
+        
+        # Get repository info
+        result = analyzer.get_repository_info(repo_url)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get repository info: {str(e)}"}), 500
 
 @app.route('/api/status')
 def status():
