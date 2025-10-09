@@ -1,0 +1,28 @@
+# Render Deployment Configuration
+# This file explicitly configures deployment from feature/render-deployment branch
+
+DEPLOYMENT_BRANCH=feature/render-deployment
+ENHANCED_FEATURES=true
+AI_FIXES_ENABLED=true
+
+# Service Configuration
+SERVICE_NAME=patchpro-demo
+RUNTIME=python
+PLAN=free
+
+# Build Configuration
+BUILD_COMMAND=./build.sh
+START_COMMAND=./start.sh
+
+# Environment Variables
+PYTHON_VERSION=3.12.0
+PORT=10000
+ENHANCED_AI_FIXES=true
+
+# Branch Enforcement
+# This deployment MUST use feature/render-deployment branch
+# Contains: Enhanced Repository Analysis with AI Fixes
+# Includes: AgentCore integration and 'Analyze + Generate Fixes' button
+
+echo "🚀 Deploying from: $DEPLOYMENT_BRANCH"
+echo "✅ Enhanced AI Fixes: $AI_FIXES_ENABLED"
