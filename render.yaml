@@ -7,7 +7,9 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-      pip install git+https://github.com/A3copilotprogram/patchpro-bot.git@main
+      python install_patchpro.py
+      echo "Build completed - checking PatchPro Bot installation:"
+      python -c "import patchpro_bot; print('PatchPro Bot version:', getattr(patchpro_bot, '__version__', 'unknown'))" || echo "PatchPro Bot not accessible"
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION

@@ -14,6 +14,9 @@ openai>=1.50.0
 # Code analysis tools
 ruff==0.5.7
 
+# PatchPro Bot (AgentCore integration)
+git+https://github.com/A3copilotprogram/patchpro-bot.git@main
+
 # Build dependencies
 setuptools>=68
 wheel
