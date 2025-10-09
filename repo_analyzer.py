@@ -429,17 +429,17 @@ class RepositoryAnalyzer:
                 code = f.read()
             
             # Use PatchPro integration to generate fixes
-            integration = PatchProIntegration()
+            integration = PatchProIntegration("mock_api_key_for_demo")
             result = integration.analyze_and_fix_sync(code, issues)
             
-            if result.get('agent_core_used') and result.get('fixed_code'):
+            if (result.get('agent_core_used') or result.get('agent_used')) and result.get('fixed_code'):
                 return {
                     "fixes_available": True,
                     "original_code": code,
                     "fixed_code": result['fixed_code'],
-                    "fix_summary": result.get('analysis_summary', 'Fixed using AgentCore'),
-                    "agent_core_used": True,
-                    "issues_addressed": len(issues)
+                    "fix_summary": result.get('analysis_summary') or f"Fixed {result.get('total_issues_addressed', len(issues))} issues using AgentCore",
+                    "agent_core_used": result.get('agent_core_used', result.get('agent_used', False)),
+                    "issues_addressed": result.get('total_issues_addressed', len(issues))
                 }
             else:
                 return {"fixes_available": False, "reason": "Fix generation failed"}
