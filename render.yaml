@@ -5,14 +5,16 @@ services:
     runtime: python
     plan: free  # Change to 'starter' or higher for production
     buildCommand: |
+      pip install --upgrade pip
       pip install -r requirements.txt
-      pip install git+https://github.com/A3copilotprogram/patchpro-bot.git@main
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
       - key: PORT
         value: 10000
+      - key: POETRY_VENV_IN_PROJECT
+        value: false
     # Optional: Add environment variables from Render dashboard
     # - key: OPENAI_API_KEY
     #   sync: false  # Set this as a secret in Render dashboard
