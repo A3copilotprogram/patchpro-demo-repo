@@ -1455,8 +1455,92 @@ def status():
         'status': 'healthy',
         'service': 'PatchPro Demo',
         'features': ['ruff_analysis', 'ai_powered_fixes', 'url_fetching'],
-        'patchpro_bot': patchpro_status
+        'patchpro_bot': patchpro_status,
+        'integrations': {
+            'patchpro_integration_module': PATCHPRO_INTEGRATION_AVAILABLE,
+            'repo_analyzer': REPO_ANALYZER_AVAILABLE,
+            'openai': bool(OpenAI),
+            'requests': bool(requests)
+        }
     })
+
+@app.route('/api/patchpro-test', methods=['POST'])
+def test_patchpro_integration():
+    """Test endpoint to verify PatchPro Bot agentic system is working"""
+    if not PATCHPRO_INTEGRATION_AVAILABLE:
+        return jsonify({
+            "error": "PatchPro Bot integration not available",
+            "fallback_mode": True,
+            "reason": "Module not imported or dependency not installed"
+        }), 503
+    
+    try:
+        data = request.get_json()
+        api_key = data.get('api_key', '').strip()
+        
+        if not api_key:
+            return jsonify({
+                "error": "API key required for PatchPro Bot testing",
+                "integration_available": True,
+                "agent_core_accessible": False
+            }), 400
+        
+        # Test PatchPro integration with simple code
+        test_code = '''
+import os
+password = "hardcoded123"  # Security issue
+unused_var = "test"        # Quality issue
+print( "hello" )           # Style issue
+'''
+        
+        test_issues = [
+            {"code": "S105", "message": "Hardcoded password", "line": 2, "column": 11},
+            {"code": "F841", "message": "Unused variable", "line": 3, "column": 0},
+            {"code": "E201", "message": "Whitespace after '('", "line": 4, "column": 6}
+        ]
+        
+        try:
+            from patchpro_integration import PatchProIntegration, is_patchpro_available
+            
+            if not is_patchpro_available():
+                return jsonify({
+                    "error": "PatchPro Bot not available at runtime",
+                    "integration_module": True,
+                    "patchpro_bot_installed": False
+                }), 503
+            
+            # Try to create PatchPro integration
+            integration = PatchProIntegration(api_key)
+            
+            # Perform a quick test analysis
+            result = integration.analyze_and_fix_sync(test_code, test_issues, "test.py")
+            
+            return jsonify({
+                "success": True,
+                "patchpro_bot_working": True,
+                "agent_core_used": result.get('agent_used', False),
+                "test_result": {
+                    "analysis_success": result.get('success', False),
+                    "agent_metadata": result.get('agent_metadata', {}),
+                    "fixed_code_provided": bool(result.get('fixed_code'))
+                },
+                "integration_status": "PatchPro Bot AgentCore successfully integrated"
+            })
+            
+        except Exception as e:
+            return jsonify({
+                "error": f"PatchPro Bot test failed: {str(e)}",
+                "integration_module": True,
+                "patchpro_bot_installed": True,
+                "agent_core_accessible": False,
+                "details": str(e)
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            "error": f"Integration test failed: {str(e)}",
+            "integration_available": PATCHPRO_INTEGRATION_AVAILABLE
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

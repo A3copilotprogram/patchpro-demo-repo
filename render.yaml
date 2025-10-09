@@ -7,6 +7,7 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
+      pip install git+https://github.com/A3copilotprogram/patchpro-bot.git@main
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
