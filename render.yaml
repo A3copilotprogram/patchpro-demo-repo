@@ -1,12 +1,14 @@
 services:
   # Web Service - Enhanced AI Fixes Version
+  # CRITICAL: Deploy from feature/render-deployment branch only
   - type: web
     name: patchpro-demo
     runtime: python
     plan: free  # Change to 'starter' or higher for production
     buildCommand: ./build.sh
     startCommand: ./start.sh
-    # Configure deployment from feature branch
+    # DEPLOY FROM THIS BRANCH - Contains Enhanced AI Fixes
+    repo: https://github.com/A3copilotprogram/patchpro-demo-repo.git
     branch: feature/render-deployment
     envVars:
       - key: PYTHON_VERSION
@@ -17,6 +19,8 @@ services:
         value: false
       - key: ENHANCED_AI_FIXES
         value: "true"
+      - key: DEPLOYMENT_BRANCH
+        value: "feature/render-deployment"
     # Optional: Add environment variables from Render dashboard
     # - key: OPENAI_API_KEY
     #   sync: false  # Set this as a secret in Render dashboard

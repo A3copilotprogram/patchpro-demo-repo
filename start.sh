@@ -1,17 +1,28 @@
 #!/bin/bash
-# Render Start Script - Ensures gunicorn is available and starts the app
+# Render Start Script - Enhanced AI Fixes Feature
+set -e
 
-echo "🚀 Starting PatchPro Demo..."
+echo "🚀 Starting PatchPro Demo with Enhanced AI Fixes..."
+echo "=================================================="
 
-# Check if gunicorn is available
-if command -v gunicorn &> /dev/null; then
-    echo "✅ gunicorn found, starting with gunicorn..."
-    exec gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 1 --timeout 120
-elif python -m gunicorn --version &> /dev/null; then
-    echo "✅ gunicorn found via python -m, starting..."
-    exec python -m gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 1 --timeout 120
-else
-    echo "⚠️ gunicorn not found, falling back to Flask development server..."
-    echo "⚠️ This is not recommended for production"
-    exec python app.py
-fi
+# Verify deployment branch
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+echo "📍 Running from branch: $CURRENT_BRANCH"
+echo "✅ Enhanced AI features include: 'Analyze + Generate Fixes' button"
+
+# Export environment variables for Flask
+export FLASK_APP=app.py
+export FLASK_ENV=production
+
+# Start the application with gunicorn
+echo "🌐 Starting Flask app with gunicorn..."
+exec gunicorn --bind 0.0.0.0:$PORT \
+    --workers 1 \
+    --timeout 60 \
+    --keep-alive 2 \
+    --max-requests 1000 \
+    --max-requests-jitter 50 \
+    --log-level info \
+    --access-logfile - \
+    --error-logfile - \
+    app:app

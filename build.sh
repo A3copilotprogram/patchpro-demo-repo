@@ -1,11 +1,23 @@
 #!/bin/bash
-# Render Build Script - Robust PatchPro Bot Installation
+# Render Build Script - Enhanced AI Fixes from feature/render-deployment
 # This script ensures PatchPro Bot is properly installed during deployment
 
 set -e  # Exit on any error
 
 echo "🚀 Starting PatchPro Demo Build Process..."
 echo "=================================================="
+
+# Verify we're deploying from the correct branch
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+echo "📍 Current branch: $CURRENT_BRANCH"
+
+if [ "$CURRENT_BRANCH" != "feature/render-deployment" ]; then
+    echo "⚠️  WARNING: Not on feature/render-deployment branch!"
+    echo "🔍 Branch check: Expected 'feature/render-deployment', got '$CURRENT_BRANCH'"
+fi
+
+echo "✅ Enhanced AI Fixes deployment from feature/render-deployment"
+echo "🤖 This build includes: Analyze + Generate Fixes button"
 
 # Upgrade pip first
 echo "📦 Upgrading pip..."
