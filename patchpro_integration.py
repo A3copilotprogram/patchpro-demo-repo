@@ -15,16 +15,15 @@ try:
     PATCHPRO_AVAILABLE = True
 except ImportError:
     PATCHPRO_AVAILABLE = False
-    logging.warning("PatchPro Bot not available - falling back to direct OpenAI")
-    
-    # Create dummy classes for type hints when PatchPro is not available
-    class AnalysisFinding:
-        def __init__(self, **kwargs):
-            pass
-    
-    class CodeLocation:
-        def __init__(self, **kwargs):
-            pass
+    logging.warning("PatchPro Bot not available - enabling mock demonstration mode")
+
+# Import mock implementation for demonstration
+try:
+    from mock_patchpro_bot import MockAgentCore, create_mock_agentcore, get_mock_integration_status
+    MOCK_AVAILABLE = True
+except ImportError:
+    MOCK_AVAILABLE = False
+    logging.error("Mock PatchPro Bot also not available")
 
 
 class PatchProIntegration:
@@ -37,24 +36,33 @@ class PatchProIntegration:
         Args:
             api_key: OpenAI API key for LLM access
         """
-        if not PATCHPRO_AVAILABLE:
-            raise ImportError(
-                "PatchPro Bot is not installed. "
-                "Install with: pip install git+https://github.com/A3copilotprogram/patchpro-bot.git@main"
-            )
-        
         self.api_key = api_key
-        self.config = AgentConfig(
-            openai_api_key=api_key,
-            llm_model="gpt-4o-mini",
-            enable_agentic_mode=True,
-            agentic_max_retries=3,
-            agentic_enable_planning=True,
-            max_tokens=4096,
-            temperature=0.1
-        )
+        self.using_mock = False
         
-        logging.info("PatchPro Bot integration initialized with agentic mode enabled")
+        if PATCHPRO_AVAILABLE:
+            # Use real PatchPro Bot
+            self.config = AgentConfig(
+                openai_api_key=api_key,
+                llm_model="gpt-4o-mini",
+                enable_agentic_mode=True,
+                agentic_max_retries=3,
+                agentic_enable_planning=True,
+                max_tokens=4096,
+                temperature=0.1
+            )
+            logging.info("PatchPro Bot integration initialized with agentic mode enabled")
+            
+        elif MOCK_AVAILABLE:
+            # Use mock implementation for demonstration
+            self.mock_agentcore = create_mock_agentcore(api_key)
+            self.using_mock = True
+            logging.info("🎭 PatchPro Bot Mock Mode: Demonstrating agentic capabilities")
+            
+        else:
+            raise ImportError(
+                "Neither PatchPro Bot nor mock implementation available. "
+                "This is needed to demonstrate the agentic system."
+            )
     
     async def analyze_and_fix_async(
         self,
@@ -73,6 +81,12 @@ class PatchProIntegration:
         Returns:
             Dict containing fixed code, analysis, and agent metadata
         """
+        if self.using_mock:
+            # Use mock AgentCore for demonstration
+            logging.info(f"🎭 Using Mock AgentCore to demonstrate agentic analysis of {filename}")
+            return self.mock_agentcore.analyze_and_fix(code, issues, filename)
+        
+        # Use real PatchPro Bot
         # Convert issues to PatchPro findings
         findings = self._convert_to_findings(code, issues, filename)
         
@@ -134,6 +148,23 @@ class PatchProIntegration:
             filename: Name of the file being analyzed
             
         Returns:
+            Dict containing fixed code, analysis, and agent metadata
+        """
+        if self.using_mock:
+            # Use mock AgentCore for demonstration
+            logging.info(f"🎭 Using Mock AgentCore (sync) to demonstrate agentic analysis of {filename}")
+            return self.mock_agentcore.analyze_and_fix(code, issues, filename)
+        
+        # Use real PatchPro Bot with async wrapper
+        try:
+            return asyncio.run(self.analyze_and_fix_async(code, issues, filename))
+        except Exception as e:
+            logging.error(f"Sync analysis failed: {str(e)}")
+            return {
+                'success': False,
+                'error': f"Synchronous analysis failed: {str(e)}",
+                'agent_used': True
+            }
             Dict containing fixed code, analysis, and agent metadata
         """
         # Run async function in sync context
@@ -256,19 +287,30 @@ class PatchProIntegration:
 
 
 def is_patchpro_available() -> bool:
-    """Check if PatchPro Bot is available"""
-    return PATCHPRO_AVAILABLE
+    """Check if PatchPro Bot is available (real or mock)"""
+    return PATCHPRO_AVAILABLE or MOCK_AVAILABLE
 
 
 def get_integration_status() -> Dict[str, Any]:
     """Get PatchPro Bot integration status"""
-    return {
-        'available': PATCHPRO_AVAILABLE,
-        'version': 'v2' if PATCHPRO_AVAILABLE else None,
-        'features': {
-            'agentic_mode': PATCHPRO_AVAILABLE,
-            'self_correction': PATCHPRO_AVAILABLE,
-            'retry_logic': PATCHPRO_AVAILABLE,
-            'patch_validation': PATCHPRO_AVAILABLE
+    if PATCHPRO_AVAILABLE:
+        return {
+            'available': True,
+            'version': 'v2',
+            'mode': 'production',
+            'features': {
+                'agentic_mode': True,
+                'self_correction': True,
+                'retry_logic': True,
+                'patch_validation': True
+            }
         }
-    }
+    elif MOCK_AVAILABLE:
+        return get_mock_integration_status()
+    else:
+        return {
+            'available': False,
+            'version': None,
+            'mode': 'unavailable',
+            'features': {}
+        }
