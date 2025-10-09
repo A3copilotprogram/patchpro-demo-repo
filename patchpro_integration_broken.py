@@ -165,18 +165,6 @@ class PatchProIntegration:
                 'error': f"Synchronous analysis failed: {str(e)}",
                 'agent_used': True
             }
-            Dict containing fixed code, analysis, and agent metadata
-        """
-        # Run async function in sync context
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(
-                self.analyze_and_fix_async(code, issues, filename)
-            )
-            return result
-        finally:
-            loop.close()
     
     def _convert_to_findings(
         self,
