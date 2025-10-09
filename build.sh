@@ -15,6 +15,12 @@ pip install --upgrade pip
 echo "📋 Installing main requirements..."
 pip install -r requirements.txt
 
+# Ensure gunicorn is explicitly installed and accessible
+echo "🔧 Ensuring gunicorn is available..."
+pip install gunicorn==21.2.0
+which gunicorn || echo "❌ gunicorn not found in PATH"
+gunicorn --version || echo "❌ gunicorn not executable"
+
 # Install PatchPro Bot with multiple fallback strategies
 echo "🤖 Installing PatchPro Bot..."
 

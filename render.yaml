@@ -5,7 +5,7 @@ services:
     runtime: python
     plan: free  # Change to 'starter' or higher for production
     buildCommand: ./build.sh
-    startCommand: gunicorn app:app
+    startCommand: ./start.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
