@@ -1,0 +1,22 @@
+# Requirements for patchpro-demo
+# Python >=3.12
+
+# Web framework
+Flask==3.0.0
+gunicorn==21.2.0
+
+# HTTP requests for URL fetching
+requests==2.31.0
+
+# AI-powered fixes (PatchPro core feature)
+openai>=1.50.0
+
+# Code analysis tools
+ruff==0.5.7
+
+# PatchPro Bot (AgentCore integration)
+git+https://github.com/A3copilotprogram/patchpro-bot.git@main
+
+# Build dependencies
+setuptools>=68
+wheel

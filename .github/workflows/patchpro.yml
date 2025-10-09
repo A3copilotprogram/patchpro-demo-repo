@@ -1,5 +1,5 @@
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 name: PatchPro (Sprint-0)
@@ -10,55 +10,115 @@ on:
 concurrency:
   group: patchpro-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   patchpro:
-    timeout-minutes: 10
+    timeout-minutes: 5
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Checkout demo repo
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Checkout patchpro-bot
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/patchpro-bot
-          path: patchpro-bot
-          ref: main
-          token: ${{ secrets.BOT_REPO_TOKEN }}   # PAT with read-only contents
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install analyzers
+      - name: Install analyzers and PatchPro
         run: |
           python -m pip install --upgrade pip
           pip install ruff==0.5.7 semgrep==1.84.0
+          pip install git+https://github.com/${{ github.repository_owner }}/patchpro-bot.git@agent-dev
 
-      - name: Run analyzers (JSON artifacts)
+      - name: Get changed files in PR
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Get changed Python files in the PR
+            git fetch origin ${{ github.base_ref }}
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || echo "")
+            echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "Changed Python files in PR: $CHANGED_FILES"
+          else
+            # For workflow_dispatch, simulate PR by comparing with main branch
+            echo "Simulating PR behavior - comparing with main branch"
+            git fetch origin main || git fetch origin master || echo "No main/master branch found"
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null | grep -E '\.(py)$' | tr '\n' ' ' || \
+                          git diff --name-only HEAD~5...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || \
+                          echo "ci_test.py example.py test_sample.py")
+            echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "Simulated PR changed files: $CHANGED_FILES"
+          fi
+
+      - name: Run analyzers on changed files
         run: |
           mkdir -p artifact/analysis
-          ruff check --output-format json . > artifact/analysis/ruff.json || true
-          semgrep --config .semgrep.yml --json > artifact/analysis/semgrep.json || true
+          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Analyzing files: $CHANGED_FILES"
+            ruff check --output-format json $CHANGED_FILES > artifact/analysis/ruff_output.json || true
+            semgrep --config .semgrep.yml --json $CHANGED_FILES > artifact/analysis/semgrep_output.json || true
+          else
+            echo "No Python files changed, creating empty analysis files"
+            echo "[]" > artifact/analysis/ruff_output.json
+            echo '{"errors": [], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}' > artifact/analysis/semgrep_output.json
+          fi
 
-      - name: Run PatchPro bot (Sprint-0 stub)
-        run: |
-          python -m pip install ./patchpro-bot
-          python -m patchpro_bot.run_ci
+      - name: Run PatchPro Agent Core
         env:
-          PP_ARTIFACTS: artifact
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m patchpro_bot.run_ci
+
+      - name: Set up git authentication for push
+        if: github.event_name == 'pull_request'
+        run: |
+          git config --global user.name "patchpro-bot"
+          git config --global user.email "patchpro-bot@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push PatchPro autocorrected changes with error handling
+        if: github.event_name == 'pull_request'
+        run: |
+          set -e
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: PatchPro Bot autocorrect"
+            git fetch origin ${{ github.head_ref }}
+            # Try to rebase, auto-resolve conflicts in analysis artifacts
+            if ! git rebase origin/${{ github.head_ref }}; then
+              echo "Rebase failed, attempting to resolve conflicts in analysis artifacts..."
+              git checkout --theirs artifact/analysis/*.json || true
+              git add artifact/analysis/*.json || true
+              git rebase --continue || true
+            fi
+            # Try to push, if fails, print error and exit gracefully
+            if ! git push origin HEAD:${{ github.head_ref }}; then
+              echo "Push failed after rebase. Please resolve conflicts manually."
+              exit 0
+            fi
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: patchpro-artifacts
           path: artifact/
+
+      - name: Ensure report exists
+        run: |
+          if [ ! -f artifact/report.md ]; then
+            echo "No report generated." > artifact/report.md
+          fi
 
       - name: Post summary comment
         uses: marocchino/sticky-pull-request-comment@v2

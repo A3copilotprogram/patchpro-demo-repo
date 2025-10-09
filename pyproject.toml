@@ -1,3 +1,26 @@
+[project]
+name = "patchpro-demo"
+version = "0.1.0"
+description = "Demo repository for PatchPro CI testing and repository analysis"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask>=3.0.0",
+    "gunicorn>=21.2.0",
+    "requests>=2.31.0",
+    "openai>=1.50.0",
+    "ruff>=0.5.7"
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "patchpro-demo"
+version = "0.1.0"
+description = "Demo repository for PatchPro CI testing and repository analysis"
+package-mode = false
+
 [tool.ruff]
 output-format = "json"
 select = ["F", "E", "I", "N"]
