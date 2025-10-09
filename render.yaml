@@ -1,11 +1,13 @@
 services:
-  # Web Service
+  # Web Service - Enhanced AI Fixes Version
   - type: web
     name: patchpro-demo
     runtime: python
     plan: free  # Change to 'starter' or higher for production
     buildCommand: ./build.sh
     startCommand: ./start.sh
+    # Configure deployment from feature branch
+    branch: feature/render-deployment
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
@@ -13,6 +15,8 @@ services:
         value: 10000
       - key: POETRY_VENV_IN_PROJECT
         value: false
+      - key: ENHANCED_AI_FIXES
+        value: "true"
     # Optional: Add environment variables from Render dashboard
     # - key: OPENAI_API_KEY
     #   sync: false  # Set this as a secret in Render dashboard
