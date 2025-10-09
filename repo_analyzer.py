@@ -1,6 +1,6 @@
 """
 Repository Analysis Module for PatchPro Demo
-Handles full repository cloning, analysis, and reporting
+Handles full repository cloning, analysis, and reporting with AI-powered fixes
 """
 import os
 import json
@@ -13,6 +13,14 @@ from typing import Dict, List, Any, Optional, Tuple
 import requests
 from urllib.parse import urlparse
 import time
+
+# Import PatchPro integration for AI fixes
+try:
+    from patchpro_integration import PatchProIntegration
+    PATCHPRO_AVAILABLE = True
+except ImportError:
+    PATCHPRO_AVAILABLE = False
+    print("[INFO] PatchPro integration not available, fixes will be skipped")
 
 class RepositoryAnalyzer:
     """Analyzes entire repositories for code quality issues"""
@@ -409,6 +417,85 @@ class RepositoryAnalyzer:
             'file_details': results['files'],
             'errors': results['analysis_errors']
         }
+
+    def _generate_fixes_for_file(self, file_path: Path, issues: List[Dict]) -> Dict[str, Any]:
+        """Generate AI-powered fixes for a file with issues"""
+        if not PATCHPRO_AVAILABLE or not issues:
+            return {"fixes_available": False, "reason": "No PatchPro integration or no issues"}
+        
+        try:
+            # Read file content
+            with open(file_path, 'r', encoding='utf-8') as f:
+                code = f.read()
+            
+            # Use PatchPro integration to generate fixes
+            integration = PatchProIntegration()
+            result = integration.analyze_and_fix_sync(code, issues)
+            
+            if result.get('agent_core_used') and result.get('fixed_code'):
+                return {
+                    "fixes_available": True,
+                    "original_code": code,
+                    "fixed_code": result['fixed_code'],
+                    "fix_summary": result.get('analysis_summary', 'Fixed using AgentCore'),
+                    "agent_core_used": True,
+                    "issues_addressed": len(issues)
+                }
+            else:
+                return {"fixes_available": False, "reason": "Fix generation failed"}
+                
+        except Exception as e:
+            return {"fixes_available": False, "reason": f"Fix error: {str(e)}"}
+
+    def analyze_repository_with_fixes(self, repo_url: str, branch: str = "main", 
+                                    generate_fixes: bool = False) -> Dict[str, Any]:
+        """
+        Enhanced repository analysis with optional AI-powered fixes
+        
+        Args:
+            repo_url: GitHub repository URL
+            branch: Git branch to analyze
+            generate_fixes: Whether to generate AI fixes for problematic files
+            
+        Returns:
+            Dict containing analysis results with optional fixes
+        """
+        # Run standard analysis first
+        analysis_result = self.analyze_repository(repo_url, branch)
+        
+        if generate_fixes and 'error' not in analysis_result and PATCHPRO_AVAILABLE:
+            print("[INFO] Generating AI fixes for problematic files...")
+            
+            # Get top problematic files for fixing
+            top_files = analysis_result.get('top_problematic_files', [])[:5]  # Fix top 5 files
+            
+            fixes_generated = []
+            
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                
+                # Re-download repository for fixing
+                repo_path = self._download_repository(repo_url, temp_path, branch)
+                if repo_path:
+                    for file_info in top_files:
+                        file_path = repo_path / file_info['file']
+                        if file_path.exists():
+                            # Get issues for this file
+                            file_details = analysis_result['file_details'].get(file_info['file'], {})
+                            issues = file_details.get('issues', [])
+                            
+                            if issues:
+                                fix_result = self._generate_fixes_for_file(file_path, issues)
+                                fix_result['file'] = file_info['file']
+                                fix_result['original_issues'] = len(issues)
+                                fixes_generated.append(fix_result)
+            
+            # Add fixes to analysis result
+            analysis_result['fixes_generated'] = fixes_generated
+            analysis_result['total_files_fixed'] = len([f for f in fixes_generated if f.get('fixes_available')])
+            analysis_result['agentcore_fixes_available'] = PATCHPRO_AVAILABLE
+            
+        return analysis_result
 
     def get_repository_info(self, repo_url: str) -> Dict[str, Any]:
         """Get basic repository information without full analysis"""

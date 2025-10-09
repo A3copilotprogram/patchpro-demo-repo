@@ -517,12 +517,16 @@ def my_function():
                 <button class="btn" onclick="analyzeRepository()" style="background: #2196f3;">
                     📊 Analyze Repository
                 </button>
+                <button class="btn" onclick="analyzeRepositoryWithFixes()" style="background: #ff5722; margin-left: 10px;">
+                    🤖 Analyze + Generate Fixes
+                </button>
                 <button class="btn" onclick="getRepoInfo()" style="background: #4caf50;">
                     ℹ️ Get Repo Info
                 </button>
                 <div style="margin-top: 10px; font-size: 12px; color: #666;">
                     <strong>Features:</strong> Analyzes up to 50 Python files, categorizes issues, shows top problematic files
                     <br><strong>Note:</strong> Analysis may take 30-60 seconds for large repositories
+                    <br><strong>🤖 AI Fixes:</strong> Generate AgentCore-powered fixes for top problematic files (requires extra time)
                 </div>
             </div>
             
@@ -859,6 +863,53 @@ def my_function():
             }
         }
         
+        async function analyzeRepositoryWithFixes() {
+            const repoUrl = document.getElementById('repoUrlInput').value.trim();
+            const branch = document.getElementById('repoBranchInput').value.trim() || 'main';
+            
+            if (!repoUrl) {
+                alert('Please enter a repository URL!');
+                return;
+            }
+            
+            if (!repoUrl.includes('github.com')) {
+                alert('Only GitHub repositories are supported!');
+                return;
+            }
+            
+            document.getElementById('repoLoading').style.display = 'block';
+            document.getElementById('repoResult').style.display = 'none';
+            document.getElementById('repoLoadingText').textContent = '🤖 Analyzing repository and generating AgentCore fixes... (this may take 60-120 seconds)';
+            
+            try {
+                const response = await fetch('/api/analyze-repo-with-fixes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        repo_url: repoUrl,
+                        branch: branch
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayRepositoryResults(data);
+                
+            } catch (error) {
+                console.error('Repository analysis with fixes error:', error);
+                document.getElementById('repoResult').innerHTML = 
+                    '<div class="issue"><strong>Error:</strong> ' + error.message + '</div>';
+                document.getElementById('repoResult').style.display = 'block';
+            } finally {
+                document.getElementById('repoLoading').style.display = 'none';
+            }
+        }
+        
         async function getRepoInfo() {
             const repoUrl = document.getElementById('repoUrlInput').value.trim();
             
@@ -976,6 +1027,56 @@ def my_function():
                 html += '</div>';
             }
             
+            // AI-Generated Fixes Section (if available)
+            if (data.fixes_generated && data.fixes_generated.length > 0) {
+                html += '<div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0; border: 2px solid #4caf50;">';
+                html += '<h4 style="margin-top: 0; color: #2e7d32;">🤖 AgentCore AI Fixes</h4>';
+                html += '<p style="margin-bottom: 15px;"><strong>Files Fixed:</strong> ' + data.total_files_fixed + ' / ' + data.fixes_generated.length + ' attempted</p>';
+                
+                data.fixes_generated.forEach((fix, index) => {
+                    html += '<div style="margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid ';
+                    html += fix.fixes_available ? '#4caf50' : '#ff5722';
+                    html += ';">';
+                    
+                    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">';
+                    html += '<strong style="font-size: 16px;">' + fix.file + '</strong>';
+                    html += '<span style="background: ';
+                    html += fix.fixes_available ? '#4caf50' : '#ff5722';
+                    html += '; color: white; padding: 4px 12px; border-radius: 16px; font-size: 12px;">';
+                    html += fix.fixes_available ? '✅ Fixed' : '❌ Failed';
+                    html += '</span></div>';
+                    
+                    if (fix.fixes_available) {
+                        html += '<p style="color: #2e7d32; margin: 8px 0;"><strong>Issues Addressed:</strong> ' + fix.issues_addressed + '</p>';
+                        html += '<p style="color: #2e7d32; margin: 8px 0;"><strong>Fix Summary:</strong> ' + fix.fix_summary + '</p>';
+                        
+                        if (fix.agent_core_used) {
+                            html += '<p style="color: #1976d2; margin: 8px 0;"><strong>🤖 AgentCore:</strong> Used for intelligent fix generation</p>';
+                        }
+                        
+                        // Show code diff button
+                        html += '<button onclick="showCodeDiff(' + index + ')" style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px;">📋 View Fixed Code</button>';
+                        
+                        // Hidden div for code diff
+                        html += '<div id="codeDiff_' + index + '" style="display: none; margin-top: 15px;">';
+                        html += '<h6>Original Code:</h6>';
+                        html += '<pre style="background: #ffebee; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 200px;"><code>' + escapeHtml(fix.original_code) + '</code></pre>';
+                        html += '<h6>Fixed Code:</h6>';
+                        html += '<pre style="background: #e8f5e8; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 200px;"><code>' + escapeHtml(fix.fixed_code) + '</code></pre>';
+                        html += '</div>';
+                    } else {
+                        html += '<p style="color: #d32f2f; margin: 8px 0;"><strong>Reason:</strong> ' + fix.reason + '</p>';
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                html += '<div style="margin-top: 15px; padding: 10px; background: #fff3e0; border-radius: 4px;">';
+                html += '<p style="margin: 0; font-size: 13px; color: #ef6c00;"><strong>🔬 AgentCore Integration:</strong> ';
+                html += data.agentcore_fixes_available ? 'Active and working!' : 'Not available for this analysis';
+                html += '</p></div></div>';
+            }
+            
             // Warnings and limitations
             if (data.files_truncated) {
                 html += '<div class="issue warning" style="margin-top: 20px;">';
@@ -1043,6 +1144,21 @@ def my_function():
             if (issueCount >= 1) return '#ffeb3b';   // Yellow
             return '#4caf50';  // Green
         }
+        
+        function showCodeDiff(index) {
+            const diffDiv = document.getElementById('codeDiff_' + index);
+            if (diffDiv.style.display === 'none') {
+                diffDiv.style.display = 'block';
+            } else {
+                diffDiv.style.display = 'none';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>
@@ -1098,6 +1214,7 @@ def info():
         ])
         endpoints.update({
             "POST /api/analyze-repo": "Analyze entire GitHub repository",
+            "POST /api/analyze-repo-with-fixes": "Analyze repository with AI-powered fixes",
             "POST /api/repo-info": "Get repository information"
         })
     
@@ -1373,9 +1490,56 @@ def analyze_demo_files():
 @app.route('/api/analyze-repo', methods=['POST'])
 def analyze_repository():
     """
-    Analyze an entire GitHub repository
+    Analyze an entire GitHub repository with optional AI fixes
+    Expected JSON: {
+        "repo_url": "https://github.com/owner/repo", 
+        "branch": "main",
+        "generate_fixes": false
+    }
+    Returns: Comprehensive repository analysis with optional fixes
+    """
+    if not REPO_ANALYZER_AVAILABLE:
+        return jsonify({
+            "error": "Repository analyzer not available",
+            "note": "This feature requires the repo_analyzer module"
+        }), 503
+    
+    try:
+        data = request.get_json()
+        if not data or 'repo_url' not in data:
+            return jsonify({"error": "Missing 'repo_url' field in request"}), 400
+        
+        repo_url = data['repo_url'].strip()
+        branch = data.get('branch', 'main')
+        generate_fixes = data.get('generate_fixes', False)
+        
+        if not repo_url:
+            return jsonify({"error": "Repository URL cannot be empty"}), 400
+        
+        # Validate GitHub URL
+        if 'github.com' not in repo_url:
+            return jsonify({"error": "Only GitHub repositories are supported"}), 400
+        
+        # Initialize analyzer
+        analyzer = RepositoryAnalyzer(max_files=50, max_file_size=100000)
+        
+        # Perform analysis with optional fixes
+        if generate_fixes:
+            result = analyzer.analyze_repository_with_fixes(repo_url, branch, generate_fixes=True)
+        else:
+            result = analyzer.analyze_repository(repo_url, branch)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": f"Repository analysis failed: {str(e)}"}), 500
+
+@app.route('/api/analyze-repo-with-fixes', methods=['POST'])
+def analyze_repository_with_fixes():
+    """
+    Analyze repository and generate AI-powered fixes for top problematic files
     Expected JSON: {"repo_url": "https://github.com/owner/repo", "branch": "main"}
-    Returns: Comprehensive repository analysis
+    Returns: Repository analysis with AgentCore-powered fixes
     """
     if not REPO_ANALYZER_AVAILABLE:
         return jsonify({
@@ -1401,13 +1565,13 @@ def analyze_repository():
         # Initialize analyzer
         analyzer = RepositoryAnalyzer(max_files=50, max_file_size=100000)
         
-        # Perform analysis
-        result = analyzer.analyze_repository(repo_url, branch)
+        # Perform enhanced analysis with fixes
+        result = analyzer.analyze_repository_with_fixes(repo_url, branch, generate_fixes=True)
         
         return jsonify(result)
         
     except Exception as e:
-        return jsonify({"error": f"Repository analysis failed: {str(e)}"}), 500
+        return jsonify({"error": f"Repository analysis with fixes failed: {str(e)}"}), 500
 
 @app.route('/api/repo-info', methods=['POST'])
 def get_repository_info():
