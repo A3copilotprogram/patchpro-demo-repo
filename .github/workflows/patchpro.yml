@@ -47,12 +47,47 @@ jobs:
           ruff check --output-format json . > artifact/analysis/ruff.json || true
           semgrep --config .semgrep.yml --json > artifact/analysis/semgrep.json || true
 
+      - name: Validate OpenAI API Key
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ ERROR: OPENAI_API_KEY secret is not set or is empty"
+            echo "PatchPro requires a valid OpenAI API key to generate AI-powered patches"
+            echo "Please set the OPENAI_API_KEY secret in repository settings"
+            exit 1
+          fi
+          echo "✅ OpenAI API key is present"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
       - name: Run PatchPro bot (Sprint-0 stub)
         run: |
           python -m pip install ./patchpro-bot
           python -m patchpro_bot.run_ci
         env:
           PP_ARTIFACTS: artifact
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          
+      - name: Validate PatchPro Success
+        run: |
+          if [ ! -f artifact/report.md ]; then
+            echo "❌ ERROR: PatchPro failed to generate report"
+            exit 1
+          fi
+          
+          # Check if patches were generated for security findings
+          SECURITY_FINDINGS=$(grep -o "security: [0-9]*" artifact/report.md | grep -o "[0-9]*" || echo "0")
+          PATCHES_GENERATED=$(grep -o "Patches generated: [0-9]*" artifact/report.md | grep -o "[0-9]*" || echo "0")
+          
+          echo "Security findings: $SECURITY_FINDINGS"
+          echo "Patches generated: $PATCHES_GENERATED"
+          
+          if [ "$SECURITY_FINDINGS" -gt 0 ] && [ "$PATCHES_GENERATED" -eq 0 ]; then
+            echo "❌ ERROR: Found $SECURITY_FINDINGS security issues but generated 0 patches"
+            echo "This indicates PatchPro failed to access the LLM or generate fixes"
+            exit 1
+          fi
+          
+          echo "✅ PatchPro completed successfully"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
