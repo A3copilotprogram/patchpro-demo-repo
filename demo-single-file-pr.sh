@@ -38,6 +38,12 @@ sleep 3
 
 echo -e "${PURPLE}Step 2: Create Pull Request from Current Branch${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Close any existing PR from this branch to main for repeatability
+echo "$ gh pr close --head demo/patchpro-ci-test --base main 2>/dev/null || echo 'No existing PR to close'"
+gh pr close --head demo/patchpro-ci-test --base main 2>/dev/null || echo "No existing PR to close"
+echo ""
+
 echo "$ git status"
 git status
 echo ""
@@ -46,8 +52,16 @@ echo "$ git push origin demo/patchpro-ci-test"
 git push origin demo/patchpro-ci-test || echo "✓ Branch pushed"
 echo ""
 
-echo "$ gh pr create --title 'Add authentication module' --body 'New auth system with login and password reset'"
-PR_URL=$(gh pr create --title "Add authentication module" --body "New authentication system with user login and password reset functionality. This demo shows PatchPro analyzing vulnerable authentication code in CI/CD." 2>&1 | grep -o 'https://github.com/[^[:space:]]*')
+echo "$ gh pr create --base main --title 'Security Demo: Authentication Module' --body 'Demo PR with vulnerabilities'"
+PR_URL=$(gh pr create --base main --title "Security Demo: Authentication Module with Vulnerabilities" --body "This PR adds a new authentication system for demo purposes. Contains deliberate security vulnerabilities for PatchPro CI analysis:
+
+- Hardcoded database credentials
+- SQL injection vulnerabilities  
+- Weak MD5 hashing
+- Predictable session tokens
+- Debug mode enabled
+
+**This is a demo PR** - PatchPro will analyze and provide security fixes." 2>&1 | grep -o 'https://github.com/[^[:space:]]*')
 
 if [ -n "$PR_URL" ]; then
     echo "✅ Pull Request created: $PR_URL"
@@ -113,3 +127,6 @@ echo -e "${YELLOW}🎯 Next Steps for Judges:${NC}"
 echo "1. Click the GitHub Actions link above to watch live analysis"
 echo "2. Click the PR link to see results when analysis completes"
 echo "3. Experience the power of AI-driven security fixes!"
+echo ""
+echo -e "${CYAN}🔄 To run demo again:${NC}"
+echo "   Simply run ./demo-single-file-pr.sh again - it will close the old PR and create a fresh one"
