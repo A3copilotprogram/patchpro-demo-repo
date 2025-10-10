@@ -47,12 +47,19 @@ git push origin demo/patchpro-ci-test || echo "✓ Branch pushed"
 echo ""
 
 echo "$ gh pr create --title 'Add authentication module' --body 'New auth system with login and password reset'"
-PR_URL=$(gh pr create --title "Add authentication module" --body "New authentication system with user login and password reset functionality. This demo shows PatchPro analyzing vulnerable authentication code in CI/CD." 2>/dev/null | grep -o 'https://github.com/[^[:space:]]*') || echo "PR created successfully"
+PR_URL=$(gh pr create --title "Add authentication module" --body "New authentication system with user login and password reset functionality. This demo shows PatchPro analyzing vulnerable authentication code in CI/CD." 2>&1 | grep -o 'https://github.com/[^[:space:]]*')
 
 if [ -n "$PR_URL" ]; then
     echo "✅ Pull Request created: $PR_URL"
+    # Extract repo info for Actions URL
+    REPO_URL=$(echo "$PR_URL" | sed 's|/pull/.*||')
+    ACTIONS_URL="${REPO_URL}/actions"
 else
     echo "✅ Pull Request created successfully"
+    # Fallback - construct URLs from git remote
+    REPO_URL=$(git remote get-url origin | sed 's/git@github.com:/https:\/\/github.com\//' | sed 's/\.git$//')
+    ACTIONS_URL="${REPO_URL}/actions"
+    PR_URL="${REPO_URL}/pulls"
 fi
 echo ""
 sleep 2
@@ -61,9 +68,29 @@ echo -e "${BLUE}Step 3: Watch PatchPro CI in Action${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🎬 Now it's time to see PatchPro in action!"
 echo ""
-echo "👁️  Open your browser and go to:"
-echo "   1. GitHub Actions tab to watch PatchPro CI running"
-echo "   2. The PR page to see analysis results posted as comments"
+echo -e "${YELLOW}� CLICK THESE LINKS TO WATCH:${NC}"
+echo ""
+echo -e "${CYAN}1. 🔄 GitHub Actions (watch PatchPro CI running):${NC}"
+echo "   $ACTIONS_URL"
+echo ""
+echo -e "${CYAN}2. 💬 Pull Request (see PatchPro comments):${NC}"  
+echo "   $PR_URL"
+echo ""
+echo -e "${PURPLE}📋 STEP-BY-STEP INSTRUCTIONS:${NC}"
+echo ""
+echo "🔄 GitHub Actions Tab:"
+echo "   1. Click the Actions link above"
+echo "   2. Look for the workflow run that just started"
+echo "   3. Click on the running workflow to see live logs"
+echo "   4. Watch PatchPro analyze your vulnerable code in real-time"
+echo ""
+echo "💬 Pull Request Tab:"  
+echo "   1. Click the PR link above"
+echo "   2. Wait 1-2 minutes for PatchPro to complete analysis"
+echo "   3. Refresh the page to see PatchPro's comment with:"
+echo "      • Security vulnerabilities found"
+echo "      • AI-generated patches for each issue"
+echo "      • Cost estimate and fix recommendations"
 echo ""
 echo "🔍 What PatchPro CI will do:"
 echo "   • Analyze the auth.py file for security vulnerabilities"
@@ -80,6 +107,9 @@ fi
 
 echo ""
 echo "🚀 PatchPro CI is now analyzing your code..."
-echo "   Check the Actions tab to see it in real-time!"
-echo ""
 echo -e "${GREEN}✨ Demo complete! PatchPro is working in the background.${NC}"
+echo ""
+echo -e "${YELLOW}🎯 Next Steps for Judges:${NC}"
+echo "1. Click the GitHub Actions link above to watch live analysis"
+echo "2. Click the PR link to see results when analysis completes"
+echo "3. Experience the power of AI-driven security fixes!"
