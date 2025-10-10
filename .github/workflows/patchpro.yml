@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0  # Fetch full history for proper git diff
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -36,11 +37,12 @@ jobs:
         id: changed-files
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Get changed Python files in the PR
+            # Get changed Python files in the PR with full git history
             git fetch origin ${{ github.base_ref }}
-            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' || echo "")
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(py)$' | tr '\n' ' ' | xargs)
             echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
-            echo "Changed Python files in PR: $CHANGED_FILES"
+            echo "Changed Python files in PR: '$CHANGED_FILES'"
+            echo "Number of changed Python files: $(echo $CHANGED_FILES | wc -w)"
           else
             # For workflow_dispatch, simulate PR by comparing with main branch
             echo "Simulating PR behavior - comparing with main branch"
@@ -52,26 +54,28 @@ jobs:
             echo "Simulated PR changed files: $CHANGED_FILES"
           fi
 
-      - name: Run analyzers on changed files
-        run: |
-          mkdir -p artifact/analysis
-          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
-          
-          if [ -n "$CHANGED_FILES" ]; then
-            echo "Analyzing files: $CHANGED_FILES"
-            ruff check --output-format json $CHANGED_FILES > artifact/analysis/ruff_output.json || true
-            semgrep --config .semgrep.yml --json $CHANGED_FILES > artifact/analysis/semgrep_output.json || true
-          else
-            echo "No Python files changed, creating empty analysis files"
-            echo "[]" > artifact/analysis/ruff_output.json
-            echo '{"errors": [], "paths": {"scanned": []}, "results": [], "skipped_rules": [], "version": "1.84.0"}' > artifact/analysis/semgrep_output.json
-          fi
-
-      - name: Run PatchPro Agent Core
+      - name: Run PatchPro integrated pipeline
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python -m patchpro_bot.run_ci
+          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Running PatchPro integrated pipeline on: $CHANGED_FILES"
+            # Create a temporary directory with only changed files for focused analysis
+            mkdir -p changed_files_only
+            for file in $CHANGED_FILES; do
+              if [ -f "$file" ]; then
+                cp "$file" "changed_files_only/"
+              fi
+            done
+            python -m patchpro_bot.cli run-ci --base-dir changed_files_only --artifacts artifact
+          else
+            echo "No changed files detected via git diff, running on current Python files for demo"
+            # For demo purposes, let's analyze the current Python files
+            echo "Analyzing current Python files: example.py, ci_test.py, test_sample.py"
+            python -m patchpro_bot.cli run-ci --base-dir . --artifacts artifact --tools ruff --tools semgrep
+          fi
 
       - name: Set up git authentication for push
         if: github.event_name == 'pull_request'
@@ -86,17 +90,18 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           set -e
-          git add .
+          # Only add source code files, not artifacts
+          git add '*.py' '*.js' '*.ts' '*.java' '*.cpp' '*.c' '*.h' '*.css' '*.html' '*.md' || true
+          # Explicitly exclude artifacts
+          git reset HEAD artifact/ changed_files_only/ || true
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "chore: PatchPro Bot autocorrect"
             git fetch origin ${{ github.head_ref }}
-            # Try to rebase, auto-resolve conflicts in analysis artifacts
+            # Try to rebase, auto-resolve conflicts in analysis artifacts  
             if ! git rebase origin/${{ github.head_ref }}; then
-              echo "Rebase failed, attempting to resolve conflicts in analysis artifacts..."
-              git checkout --theirs artifact/analysis/*.json || true
-              git add artifact/analysis/*.json || true
+              echo "Rebase failed, attempting to resolve conflicts..."
               git rebase --continue || true
             fi
             # Try to push, if fails, print error and exit gracefully
