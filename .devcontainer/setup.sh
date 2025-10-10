@@ -3,13 +3,13 @@
 # PatchPro CI Demo Environment Setup
 echo "🚀 Setting up PatchPro CI Demo environment..."
 
-# Install PatchPro
+# Install PatchPro (from source since not on PyPI)
 echo "📦 Installing PatchPro..."
-pip install patchpro-bot
+pip install git+https://github.com/A3copilotprogram/patchpro-bot.git
 
 # Verify installation
 echo "✅ Verifying PatchPro installation..."
-patchpro --version
+patchpro version
 
 # Configure git (required for CI demos)
 echo "🔧 Configuring git..."
