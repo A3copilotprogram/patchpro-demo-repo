@@ -51,4 +51,4 @@ class AuthManager:
 DEBUG = True
 if DEBUG:
     print(f"Database password: {DB_PASSWORD}")
-    print(f"Secret key: {AuthManager().secret_key}")
+    print(f"Secret key: {AuthManager().secret_key}")# Test comment to trigger workflow
